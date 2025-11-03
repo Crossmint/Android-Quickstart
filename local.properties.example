@@ -1,0 +1,12 @@
+## This file is a template for local.properties
+# Copy this file to local.properties and fill in the actual values
+#
+# local.properties should *NOT* be checked into Version Control Systems,
+# as it contains information specific to your local configuration.
+
+# Location of the SDK (replace with your actual Android SDK path)
+sdk.dir=/path/to/your/Android/sdk
+
+# Crossmint API Key (replace with your actual API key)
+# Get your API key from: https://www.crossmint.com/console
+CROSSMINT_API_KEY=your_crossmint_api_key_here
