@@ -5,15 +5,23 @@ An Android + Jetpack Compose sample that demonstrates how to authenticate with C
 ## Prerequisites
 - Android Studio Hedgehog (or newer) with the Android SDK and an emulator or device running API 24+.
 - JDK 11 (bundled with current Android Studio versions).
-- A Crossmint developer account and API key from the [Crossmint console](https://www.crossmint.com/console).
+- A Crossmint developer account (see [Get your Crossmint API key](#get-your-crossmint-api-key)).
 - (Optional) An email inbox you can use for one-time-passcode (OTP) authentication during sign-in.
+
+## Get your Crossmint API key
+1. Sign in to the [Crossmint staging console](https://staging.crossmint.com/console/overview) and create an account if you do not already have one.
+2. If prompted, create a project for your app.
+3. Open the project overview and create (or copy) the **client API key** — this quickstart runs entirely on-device, so it expects the client key that the Crossmint SDK uses for authenticated calls. When creating the key, pick `App type → Mobile` and register your Android package name (for this sample: `com.crossmint.kotlin.quickstart`) so the credential only works for your app.
+4. When you're ready for production, replicate the project in the [production console](https://www.crossmint.com/console) to obtain live client credentials.
+
+Paste that key into `local.properties` as described below.
 
 ## Configure local properties
 1. Copy the template: `cp local.properties.example local.properties`.
 2. Update the paths and credentials inside `local.properties`:
    ```properties
    sdk.dir=/absolute/path/to/Android/sdk
-   CROSSMINT_API_KEY=your_live_or_test_key
+   CROSSMINT_API_KEY=your_api_key
    ```
 3. Never commit `local.properties` — it contains machine-specific secrets and is already gitignored.
 
