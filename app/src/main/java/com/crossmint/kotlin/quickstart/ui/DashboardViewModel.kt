@@ -180,6 +180,7 @@ class DashboardViewModel(
                 transaction = null,
                 transactionError = null,
                 isTransactionFetched = false,
+                isLoading = false
             )
     }
 
