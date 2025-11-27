@@ -7,25 +7,24 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.*
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.crossmint.kotlin.compose.CrossmintSDKProvider
+import com.crossmint.kotlin.Crossmint
+import com.crossmint.kotlin.compose.CrossmintProvider
 import com.crossmint.kotlin.compose.LocalCrossmintSDK
+import com.crossmint.kotlin.core.LogLevel
 import com.crossmint.kotlin.quickstart.auth.CrossmintAuthViewModel
 import com.crossmint.kotlin.quickstart.ui.*
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @Composable
 fun QuickstartApp() {
-    CrossmintSDKProvider
-        .Builder(BuildConfig.CROSSMINT_API_KEY)
-        .developmentMode()
-        .onTEERequired { onOTPSubmit, onDismiss ->
-            OTPDialog(
-                onOTPSubmit = onOTPSubmit,
-                onDismiss = onDismiss,
-            )
-        }.build {
-            QuickstartContent()
-        }
+   CrossmintProvider(
+      apiKey = BuildConfig.CROSSMINT_API_KEY,
+      isNonCustodialSignerEnabled = true,
+      logLevel = LogLevel.INFO
+   ) {
+      QuickstartContent()
+   }
 }
 
 enum class AppScreen {
@@ -136,5 +135,33 @@ private fun QuickstartContent() {
                 }
             )
         }
+
+       val shouldShowOTP = remember { mutableStateOf(false) }
+       val scope = rememberCoroutineScope()
+
+       LaunchedEffect(Unit) {
+          Crossmint.instance.isOTPRequired.collect { isOTPRequired ->
+             shouldShowOTP.value = isOTPRequired
+          }
+       }
+
+       if (shouldShowOTP.value) {
+          OTPDialog(
+             onOTPSubmit = {
+                scope.launch {
+                   Crossmint.instance.submit(it)
+                }
+             },
+             onDismiss = {
+                scope.launch {
+                   Crossmint.instance.cancelTransaction()
+                }
+
+                dashboardViewModel.clearTransaction()
+
+                shouldShowOTP.value = false
+             },
+          )
+       }
     }
 }
