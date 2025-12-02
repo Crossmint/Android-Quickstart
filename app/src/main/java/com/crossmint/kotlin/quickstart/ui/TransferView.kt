@@ -32,9 +32,6 @@ fun TransferView(
     dashboardViewModel: DashboardViewModel
 ) {
     val uiState by dashboardViewModel.uiState.collectAsState()
-    var amount by remember { mutableStateOf("") }
-    var recipient by remember { mutableStateOf("") }
-    var tokenLocator by remember { mutableStateOf("") }
     var showErrorDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(uiState.hasTransactionError) {
@@ -87,8 +84,8 @@ fun TransferView(
         Spacer(modifier = Modifier.height(SpacingTokens.xxl))
 
         CustomTextField(
-            value = amount,
-            onValueChange = { amount = it },
+            value = dashboardViewModel.amount.value,
+            onValueChange = { dashboardViewModel.amount.value = it },
             placeholder = "0.0",
             keyboardType = KeyboardType.Decimal,
             modifier = Modifier.fillMaxWidth()
@@ -97,8 +94,11 @@ fun TransferView(
         Spacer(modifier = Modifier.height(SpacingTokens.l))
 
         CustomTextField(
-            value = tokenLocator,
-            onValueChange = { tokenLocator = it },
+            value = dashboardViewModel.tokenLocator.value,
+            onValueChange = { newValue ->
+                dashboardViewModel.tokenLocator.value = newValue
+                dashboardViewModel.updateTokenLocator(newValue)
+            },
             placeholder = "base-sepolia:usdc",
             modifier = Modifier.fillMaxWidth()
         )
@@ -106,8 +106,8 @@ fun TransferView(
         Spacer(modifier = Modifier.height(SpacingTokens.l))
 
         CustomTextField(
-            value = recipient,
-            onValueChange = { recipient = it },
+            value = dashboardViewModel.recipient.value,
+            onValueChange = { dashboardViewModel.recipient.value = it },
             placeholder = "Recipient address",
             modifier = Modifier.fillMaxWidth()
         )
@@ -118,13 +118,16 @@ fun TransferView(
             text = "Transfer",
             onClick = {
                 dashboardViewModel.sendTransaction(
-                    recipient = recipient,
-                    tokenLocator = tokenLocator,
-                    amount = amount.toDoubleOrNull() ?: 0.0
+                    recipient = dashboardViewModel.recipient.value,
+                    tokenLocator = dashboardViewModel.tokenLocator.value,
+                    amount = dashboardViewModel.amount.value.toDoubleOrNull() ?: 0.0
                 )
             },
             isLoading = uiState.isCreatingTransaction,
-            isDisabled = amount.isEmpty() || recipient.isEmpty() || tokenLocator.isEmpty() || uiState.isCreatingTransaction,
+            isDisabled = dashboardViewModel.amount.value.isEmpty() ||
+                dashboardViewModel.recipient.value.isEmpty() ||
+                dashboardViewModel.tokenLocator.value.isEmpty() ||
+                uiState.isCreatingTransaction,
             modifier = Modifier.fillMaxWidth()
         )
     }

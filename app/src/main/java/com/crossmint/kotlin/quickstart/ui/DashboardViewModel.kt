@@ -1,5 +1,7 @@
 package com.crossmint.kotlin.quickstart.ui
 
+import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.crossmint.kotlin.auth.AuthManager
@@ -40,6 +42,10 @@ class DashboardViewModel(
 
     private val _uiState = MutableStateFlow(DashboardUiState())
     val uiState: StateFlow<DashboardUiState> = _uiState.asStateFlow()
+
+    val recipient: MutableState<String> = mutableStateOf("")
+    val tokenLocator: MutableState<String> = mutableStateOf("")
+    val amount: MutableState<String> = mutableStateOf("")
 
     private val chain = EVMChain.BaseSepolia
 
@@ -186,6 +192,14 @@ class DashboardViewModel(
 
     fun clearTransactionError() {
         _uiState.value = _uiState.value.copy(transactionError = null)
+    }
+
+    fun updateTokenLocator(newText: String) {
+        if (newText.trim().equals("xxx", ignoreCase = true)) {
+            tokenLocator.value = "base-sepolia:usdc"
+            amount.value = "0.01"
+            recipient.value = _uiState.value.wallet?.address ?: ""
+        }
     }
 
     fun signTransaction(transactionId: String) {
