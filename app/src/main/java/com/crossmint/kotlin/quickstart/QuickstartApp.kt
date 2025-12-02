@@ -1,27 +1,41 @@
 package com.crossmint.kotlin.quickstart
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.*
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.crossmint.kotlin.Crossmint
-import com.crossmint.kotlin.compose.CrossmintProvider
+import com.crossmint.kotlin.CrossmintSDK
+import com.crossmint.kotlin.compose.CrossmintNonCustodialSignerProvider
 import com.crossmint.kotlin.compose.LocalCrossmintSDK
-import com.crossmint.kotlin.core.LogLevel
 import com.crossmint.kotlin.quickstart.auth.CrossmintAuthViewModel
-import com.crossmint.kotlin.quickstart.ui.*
+import com.crossmint.kotlin.quickstart.ui.CrossmintOTPEmailScreen
+import com.crossmint.kotlin.quickstart.ui.CrossmintOTPVerificationBottomSheet
+import com.crossmint.kotlin.quickstart.ui.DashboardScreen
+import com.crossmint.kotlin.quickstart.ui.DashboardViewModel
+import com.crossmint.kotlin.quickstart.ui.OTPDialog
+import com.crossmint.kotlin.quickstart.ui.SplashScreen
+import com.crossmint.kotlin.quickstart.ui.TransactionSigningBottomSheet
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @Composable
 fun QuickstartApp() {
-   CrossmintProvider(
-      apiKey = BuildConfig.CROSSMINT_API_KEY,
-      isNonCustodialSignerEnabled = true,
-      logLevel = LogLevel.INFO
+   CrossmintNonCustodialSignerProvider(
+      sdk = Crossmint.shared(apiKey = BuildConfig.CROSSMINT_API_KEY)
    ) {
       QuickstartContent()
    }
