@@ -5,6 +5,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.crossmint.kotlin.auth.AuthManager
+import com.crossmint.kotlin.signers.SignerType
 import com.crossmint.kotlin.types.EVMChain
 import com.crossmint.kotlin.types.Result
 import com.crossmint.kotlin.types.SignerData
@@ -80,7 +81,7 @@ class DashboardViewModel(
                 errorMessage = null
             )
 
-            val signerData = SignerData.Email(authManager.authState.value.email ?: "")
+            val signerData = SignerType.Email(authManager.authState.value.email ?: "")
 
             when (val result = crossmintWallets.createWallet(chain, signerData)) {
                 is Result.Success -> {
