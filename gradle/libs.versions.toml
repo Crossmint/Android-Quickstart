@@ -6,7 +6,7 @@ lifecycleRuntimeKtx = "2.6.1"
 androidxLifecycleCompose = "2.6.1"
 activityCompose = "1.11.0"
 composeBom = "2024.09.00"
-crossmint = "0.0.7"
+crossmint = "0.0.8"
 coroutines = "1.8.1"
 
 [libraries]
