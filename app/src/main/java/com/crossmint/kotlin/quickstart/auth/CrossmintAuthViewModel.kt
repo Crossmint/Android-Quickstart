@@ -3,6 +3,7 @@ package com.crossmint.kotlin.quickstart.auth
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.crossmint.kotlin.auth.AuthManager
+import com.crossmint.kotlin.auth.CrossmintAuthManager
 import com.crossmint.kotlin.auth.models.OTPAuthenticationStatus
 import com.crossmint.kotlin.types.Result
 import kotlinx.coroutines.delay
@@ -51,7 +52,7 @@ data class CrossmintOTPUiState(
 }
 
 class CrossmintAuthViewModel(
-    private val authManager: AuthManager,
+   private val authManager: CrossmintAuthManager,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(CrossmintOTPUiState())
     val uiState: StateFlow<CrossmintOTPUiState> = _uiState.asStateFlow()
