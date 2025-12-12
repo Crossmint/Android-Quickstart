@@ -20,7 +20,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import co.touchlab.kermit.Severity
 import com.crossmint.kotlin.Crossmint
-import com.crossmint.kotlin.CrossmintSDK
 import com.crossmint.kotlin.auth.CrossmintAuthManager
 import com.crossmint.kotlin.compose.CrossmintNonCustodialSignerProvider
 import com.crossmint.kotlin.compose.LocalCrossmintSDK
