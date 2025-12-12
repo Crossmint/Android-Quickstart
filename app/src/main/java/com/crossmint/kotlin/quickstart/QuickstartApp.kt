@@ -21,6 +21,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import co.touchlab.kermit.Severity
 import com.crossmint.kotlin.Crossmint
 import com.crossmint.kotlin.auth.CrossmintAuthManager
+import com.crossmint.kotlin.auth.InsecurePersistentSessionStore
 import com.crossmint.kotlin.compose.CrossmintNonCustodialSignerProvider
 import com.crossmint.kotlin.compose.LocalCrossmintSDK
 import com.crossmint.kotlin.quickstart.auth.CrossmintAuthViewModel
@@ -37,10 +38,20 @@ import kotlinx.coroutines.launch
 @Composable
 fun QuickstartApp() {
    val context = LocalContext.current
+
+   val crossmintAuthManager =
+      remember {
+         CrossmintAuthManager(
+            apiKey = BuildConfig.CROSSMINT_API_KEY,
+            secureStorage = InsecurePersistentSessionStore(),
+         )
+      }
+
    CrossmintNonCustodialSignerProvider(
       sdk = Crossmint.shared(
          apiKey = BuildConfig.CROSSMINT_API_KEY,
          appContext = context,
+         authManager = crossmintAuthManager,
          logLevel = Severity.Verbose
       )
    ) {
