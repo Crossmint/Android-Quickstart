@@ -21,6 +21,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import co.touchlab.kermit.Severity
 import com.crossmint.kotlin.Crossmint
 import com.crossmint.kotlin.CrossmintSDK
+import com.crossmint.kotlin.auth.CrossmintAuthManager
 import com.crossmint.kotlin.compose.CrossmintNonCustodialSignerProvider
 import com.crossmint.kotlin.compose.LocalCrossmintSDK
 import com.crossmint.kotlin.quickstart.auth.CrossmintAuthViewModel
@@ -57,11 +58,11 @@ private fun QuickstartContent() {
     val sdk = LocalCrossmintSDK.current
     val crossmintAuthViewModel: CrossmintAuthViewModel =
         viewModel {
-            CrossmintAuthViewModel(sdk.authManager)
+            CrossmintAuthViewModel(sdk.authManager as CrossmintAuthManager)
         }
     val dashboardViewModel: DashboardViewModel =
         viewModel {
-            DashboardViewModel(sdk.crossmintWallets, sdk.authManager)
+            DashboardViewModel(sdk.crossmintWallets, sdk.authManager as CrossmintAuthManager)
         }
 
     val crossmintUiState by crossmintAuthViewModel.uiState.collectAsState()
