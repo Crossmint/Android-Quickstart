@@ -21,6 +21,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import co.touchlab.kermit.Severity
 import com.crossmint.kotlin.Crossmint
 import com.crossmint.kotlin.auth.CrossmintAuthManager
+import com.crossmint.kotlin.auth.EncryptedSharedPreferenceStorage
 import com.crossmint.kotlin.auth.InsecurePersistentSessionStore
 import com.crossmint.kotlin.compose.CrossmintNonCustodialSignerProvider
 import com.crossmint.kotlin.compose.LocalCrossmintSDK
@@ -43,7 +44,7 @@ fun QuickstartApp() {
       remember {
          CrossmintAuthManager(
             apiKey = BuildConfig.CROSSMINT_API_KEY,
-            secureStorage = InsecurePersistentSessionStore(),
+            secureStorage = EncryptedSharedPreferenceStorage(context)
          )
       }
 
