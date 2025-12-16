@@ -22,6 +22,7 @@ import co.touchlab.kermit.Severity
 import com.crossmint.kotlin.Crossmint
 import com.crossmint.kotlin.auth.CrossmintAuthManager
 import com.crossmint.kotlin.auth.EncryptedSharedPreferenceStorage
+import com.crossmint.kotlin.auth.FallbackPolicy
 import com.crossmint.kotlin.auth.InsecurePersistentSessionStore
 import com.crossmint.kotlin.auth.TinkWithFallbackSessionStore
 import com.crossmint.kotlin.auth.createAuthManager
@@ -46,7 +47,10 @@ fun QuickstartApp() {
       remember {
          createAuthManager(
             apiKey = BuildConfig.CROSSMINT_API_KEY,
-            secureStorage = TinkWithFallbackSessionStore(context),
+            secureStorage = TinkWithFallbackSessionStore(
+               context = context,
+               fallbackPolicy = FallbackPolicy.InsecurePersistent
+            ),
             appContext = context,
             logLevel = Severity.Verbose
          )
