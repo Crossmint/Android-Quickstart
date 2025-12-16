@@ -23,6 +23,8 @@ import com.crossmint.kotlin.Crossmint
 import com.crossmint.kotlin.auth.CrossmintAuthManager
 import com.crossmint.kotlin.auth.EncryptedSharedPreferenceStorage
 import com.crossmint.kotlin.auth.InsecurePersistentSessionStore
+import com.crossmint.kotlin.auth.TinkWithFallbackSessionStore
+import com.crossmint.kotlin.auth.createAuthManager
 import com.crossmint.kotlin.compose.CrossmintNonCustodialSignerProvider
 import com.crossmint.kotlin.compose.LocalCrossmintSDK
 import com.crossmint.kotlin.quickstart.auth.CrossmintAuthViewModel
@@ -42,9 +44,11 @@ fun QuickstartApp() {
 
    val crossmintAuthManager =
       remember {
-         CrossmintAuthManager(
+         createAuthManager(
             apiKey = BuildConfig.CROSSMINT_API_KEY,
-            secureStorage = EncryptedSharedPreferenceStorage(context)
+            secureStorage = TinkWithFallbackSessionStore(context),
+            appContext = context,
+            logLevel = Severity.Verbose
          )
       }
 
