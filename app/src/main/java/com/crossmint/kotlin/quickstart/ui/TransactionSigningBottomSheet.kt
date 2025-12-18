@@ -82,7 +82,7 @@ fun TransactionSigningBottomSheet(
                 onDismiss()
             },
             title = { Text("Success") },
-            text = { Text("Transaction signed successfully!") },
+            text = { Text("Transaction sent successfully!") },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -121,7 +121,7 @@ fun TransactionSigningBottomSheet(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Transaction Signing",
+                        text = "Transaction Details",
                         fontSize = TypographyTokens.title3,
                         fontWeight = FontWeight.Bold
                     )
@@ -195,16 +195,6 @@ fun TransactionSigningBottomSheet(
                     verticalArrangement = Arrangement.spacedBy(SpacingTokens.l),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    if (transaction.status == TransactionStatus.AWAITING_APPROVAL) {
-                        com.crossmint.kotlin.quickstart.ui.components.PrimaryButton(
-                            text = "Sign Transaction",
-                            onClick = { viewModel.signTransaction(transaction.id) },
-                            isLoading = uiState.isLoading,
-                            isDisabled = uiState.isLoading,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-
                     OutlinedButton(
                         onClick = {
                             if (!uiState.isLoading) {
