@@ -43,24 +43,10 @@ import kotlinx.coroutines.launch
 fun QuickstartApp() {
    val context = LocalContext.current
 
-   val crossmintAuthManager =
-      remember {
-         createAuthManager(
-            apiKey = BuildConfig.CROSSMINT_API_KEY,
-            secureStorage = TinkWithFallbackSessionStore(
-               context = context,
-               fallbackPolicy = FallbackPolicy.InsecurePersistent
-            ),
-            appContext = context,
-            logLevel = Severity.Verbose
-         )
-      }
-
    CrossmintNonCustodialSignerProvider(
       sdk = Crossmint.shared(
          apiKey = BuildConfig.CROSSMINT_API_KEY,
          appContext = context,
-         authManager = crossmintAuthManager,
          logLevel = Severity.Verbose
       )
    ) {
