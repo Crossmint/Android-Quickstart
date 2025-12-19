@@ -204,55 +204,6 @@ class DashboardViewModel(
         }
     }
 
-    fun signTransaction(transactionId: String) {
-        viewModelScope.launch {
-            if (!_uiState.value.isTransactionFetched) {
-                _uiState.value =
-                    _uiState.value.copy(
-                        errorMessage = "Transaction must be fetched before signing",
-                    )
-                return@launch
-            }
-
-            _uiState.value =
-                _uiState.value.copy(
-                    isLoading = true,
-                    errorMessage = null,
-                )
-
-            val wallet = _uiState.value.wallet
-            if (wallet == null) {
-                _uiState.value =
-                    _uiState.value.copy(
-                        isLoading = false,
-                        errorMessage = "No wallet available",
-                    )
-                return@launch
-            }
-
-            when (val result = wallet.approve(transactionId)) {
-                is Result.Success -> {
-                    _uiState.value =
-                        _uiState.value.copy(
-                            isLoading = false,
-                            transaction = result.value,
-                            transactionError = null,
-                            isTransactionFetched = true,
-                        )
-                }
-                is Result.Failure -> {
-                    val message = result.error.message
-                    _uiState.value =
-                        _uiState.value.copy(
-                            isLoading = false,
-                            errorMessage = "Signing failed: $message",
-                            transactionError = result.error,
-                        )
-                }
-            }
-        }
-    }
-
     fun reset() {
         _uiState.value = DashboardUiState()
     }

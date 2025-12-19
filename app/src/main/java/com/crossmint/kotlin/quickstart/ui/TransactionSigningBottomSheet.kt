@@ -29,7 +29,6 @@ fun TransactionSigningBottomSheet(
     val uiState by viewModel.uiState.collectAsState()
     val transaction = uiState.transaction
     var showErrorDialog by remember { mutableStateOf(false) }
-    var showSuccessDialog by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState(
         skipPartiallyExpanded = false
     )
@@ -37,20 +36,6 @@ fun TransactionSigningBottomSheet(
     LaunchedEffect(uiState.hasTransactionError) {
         if (uiState.hasTransactionError) {
             showErrorDialog = true
-        }
-    }
-
-    LaunchedEffect(transaction?.status) {
-        if (transaction?.status == TransactionStatus.SUCCESS) {
-            showSuccessDialog = true
-        }
-    }
-
-    LaunchedEffect(showSuccessDialog) {
-        if (showSuccessDialog) {
-            kotlinx.coroutines.delay(2000)
-            sheetState.hide()
-            onDismiss()
         }
     }
 
@@ -67,27 +52,6 @@ fun TransactionSigningBottomSheet(
                     onClick = {
                         showErrorDialog = false
                         viewModel.clearTransactionError()
-                    },
-                ) {
-                    Text("OK")
-                }
-            },
-        )
-    }
-
-    if (showSuccessDialog && transaction?.status == TransactionStatus.SUCCESS) {
-        AlertDialog(
-            onDismissRequest = {
-                showSuccessDialog = false
-                onDismiss()
-            },
-            title = { Text("Success") },
-            text = { Text("Transaction signed successfully!") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showSuccessDialog = false
-                        onDismiss()
                     },
                 ) {
                     Text("OK")
@@ -121,7 +85,7 @@ fun TransactionSigningBottomSheet(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Transaction Signing",
+                        text = "Transaction Details",
                         fontSize = TypographyTokens.title3,
                         fontWeight = FontWeight.Bold
                     )
@@ -195,16 +159,6 @@ fun TransactionSigningBottomSheet(
                     verticalArrangement = Arrangement.spacedBy(SpacingTokens.l),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    if (transaction.status == TransactionStatus.AWAITING_APPROVAL) {
-                        com.crossmint.kotlin.quickstart.ui.components.PrimaryButton(
-                            text = "Sign Transaction",
-                            onClick = { viewModel.signTransaction(transaction.id) },
-                            isLoading = uiState.isLoading,
-                            isDisabled = uiState.isLoading,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-
                     OutlinedButton(
                         onClick = {
                             if (!uiState.isLoading) {
