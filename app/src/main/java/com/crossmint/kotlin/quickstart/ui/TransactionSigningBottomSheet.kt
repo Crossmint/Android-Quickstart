@@ -29,7 +29,6 @@ fun TransactionSigningBottomSheet(
     val uiState by viewModel.uiState.collectAsState()
     val transaction = uiState.transaction
     var showErrorDialog by remember { mutableStateOf(false) }
-    var showSuccessDialog by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState(
         skipPartiallyExpanded = false
     )
@@ -39,13 +38,6 @@ fun TransactionSigningBottomSheet(
             showErrorDialog = true
         }
     }
-
-    LaunchedEffect(transaction?.status) {
-        if (transaction?.status == TransactionStatus.SUCCESS) {
-            showSuccessDialog = true
-        }
-    }
-
 
     if (showErrorDialog && uiState.hasTransactionError) {
         AlertDialog(
@@ -60,27 +52,6 @@ fun TransactionSigningBottomSheet(
                     onClick = {
                         showErrorDialog = false
                         viewModel.clearTransactionError()
-                    },
-                ) {
-                    Text("OK")
-                }
-            },
-        )
-    }
-
-    if (showSuccessDialog && transaction?.status == TransactionStatus.SUCCESS) {
-        AlertDialog(
-            onDismissRequest = {
-                showSuccessDialog = false
-                onDismiss()
-            },
-            title = { Text("Success") },
-            text = { Text("Transaction sent successfully!") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showSuccessDialog = false
-                        onDismiss()
                     },
                 ) {
                     Text("OK")
