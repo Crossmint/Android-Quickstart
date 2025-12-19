@@ -46,13 +46,6 @@ fun TransactionSigningBottomSheet(
         }
     }
 
-    LaunchedEffect(showSuccessDialog) {
-        if (showSuccessDialog) {
-            kotlinx.coroutines.delay(2000)
-            sheetState.hide()
-            onDismiss()
-        }
-    }
 
     if (showErrorDialog && uiState.hasTransactionError) {
         AlertDialog(
