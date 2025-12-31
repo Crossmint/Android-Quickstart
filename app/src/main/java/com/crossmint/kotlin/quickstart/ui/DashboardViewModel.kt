@@ -70,8 +70,16 @@ class DashboardViewModel(
                 isEmpty = false,
                 errorMessage = null
             )
+            clearTransaction()
+            clearInputFields()
             fetchWallet()
         }
+    }
+
+    private fun clearInputFields() {
+        recipient.value = ""
+        tokenLocator.value = ""
+        amount.value = ""
     }
 
     fun fetchWallet() {
@@ -219,12 +227,18 @@ class DashboardViewModel(
         _uiState.value = _uiState.value.copy(transactionError = null)
     }
 
-    fun updateTokenLocator(newText: String) {
+    fun updateTokenLocator(newText: String): Boolean {
         if (newText.trim().equals("xxx", ignoreCase = true)) {
-            tokenLocator.value = "base-sepolia:usdc"
+            tokenLocator.value = when (_uiState.value.selectedWalletType) {
+                WalletType.EVM -> "base-sepolia:usdc"
+                WalletType.STELLAR -> "stellar:xlm"
+                WalletType.SOLANA -> "solana:sol"
+            }
             amount.value = "0.01"
             recipient.value = _uiState.value.wallet?.address ?: ""
+            return true
         }
+        return false
     }
 
     fun reset() {
