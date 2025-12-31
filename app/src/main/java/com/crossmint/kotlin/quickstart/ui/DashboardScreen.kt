@@ -9,6 +9,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.AccountBalanceWallet
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -113,7 +114,7 @@ fun DashboardScreen(
                         horizontal = SpacingTokens.xxl,
                         vertical = SpacingTokens.l
                     )
-                    .padding(top = SpacingTokens.l, bottom = SpacingTokens.xxxl),
+                    .padding(top = SpacingTokens.l),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -130,6 +131,15 @@ fun DashboardScreen(
                     iconPosition = IconPosition.END
                 )
             }
+
+            WalletTypeSwitcher(
+                selectedWalletType = dashboardUiState.selectedWalletType,
+                onWalletTypeSelected = { dashboardViewModel.selectWalletType(it) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = SpacingTokens.xxl)
+                    .padding(bottom = SpacingTokens.l)
+            )
 
             if (walletAddress != null) {
                 Column(
@@ -239,6 +249,74 @@ fun DashboardScreen(
             CrossmintPoweredView(
                 modifier = Modifier.padding(bottom = SpacingTokens.l)
             )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun WalletTypeSwitcher(
+    selectedWalletType: WalletType,
+    onWalletTypeSelected: (WalletType) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Column(modifier = modifier) {
+        Text(
+            text = "Wallet Type",
+            fontSize = TypographyTokens.caption,
+            color = SemanticColors.textSecondary,
+            modifier = Modifier.padding(bottom = SpacingTokens.xs)
+        )
+
+        ExposedDropdownMenuBox(
+            expanded = expanded,
+            onExpandedChange = { expanded = it }
+        ) {
+            OutlinedTextField(
+                value = selectedWalletType.displayName,
+                onValueChange = {},
+                readOnly = true,
+                trailingIcon = {
+                    Icon(
+                        imageVector = Icons.Default.ArrowDropDown,
+                        contentDescription = "Select wallet type",
+                        tint = SemanticColors.textPrimary
+                    )
+                },
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = SemanticColors.primary,
+                    unfocusedBorderColor = SemanticColors.border,
+                    focusedContainerColor = Color.White,
+                    unfocusedContainerColor = Color.White
+                ),
+                shape = RoundedCornerShape(DimensionTokens.CornerRadius.m),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+            )
+
+            ExposedDropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false },
+                containerColor = Color.White
+            ) {
+                WalletType.entries.forEach { walletType ->
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                text = walletType.displayName,
+                                fontWeight = if (walletType == selectedWalletType) FontWeight.Bold else FontWeight.Normal
+                            )
+                        },
+                        onClick = {
+                            onWalletTypeSelected(walletType)
+                            expanded = false
+                        }
+                    )
+                }
+            }
         }
     }
 }
