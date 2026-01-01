@@ -16,6 +16,7 @@ import com.crossmint.kotlin.types.StellarChain
 import com.crossmint.kotlin.types.Transaction
 import com.crossmint.kotlin.types.TransactionError
 import com.crossmint.kotlin.types.Wallet
+import com.crossmint.kotlin.types.WalletError
 import com.crossmint.kotlin.wallets.CrossmintWallets
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -95,10 +96,12 @@ class DashboardViewModel(
                     )
                 }
                 is Result.Failure -> {
+                    val isEmpty = result.error is WalletError.WalletNotFound
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
-                        errorMessage = result.error.message,
-                        isEmpty = true
+                        wallet = null,
+                        errorMessage = if (!isEmpty) result.error.message else null,
+                        isEmpty = isEmpty
                     )
                 }
             }
