@@ -7,17 +7,27 @@ import androidx.lifecycle.viewModelScope
 import com.crossmint.kotlin.auth.AuthManager
 import com.crossmint.kotlin.auth.CrossmintAuthManager
 import com.crossmint.kotlin.signers.SignerType
+import com.crossmint.kotlin.types.Chain
 import com.crossmint.kotlin.types.EVMChain
 import com.crossmint.kotlin.types.Result
 import com.crossmint.kotlin.types.SignerData
+import com.crossmint.kotlin.types.SolanaChain
+import com.crossmint.kotlin.types.StellarChain
 import com.crossmint.kotlin.types.Transaction
 import com.crossmint.kotlin.types.TransactionError
 import com.crossmint.kotlin.types.Wallet
+import com.crossmint.kotlin.types.WalletError
 import com.crossmint.kotlin.wallets.CrossmintWallets
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+
+enum class WalletType(val displayName: String, val chain: Chain) {
+    EVM("EVM", EVMChain.BaseSepolia),
+    SOLANA("Solana", SolanaChain.Solana),
+    STELLAR("Stellar", StellarChain.Stellar)
+}
 
 data class DashboardUiState(
     val wallet: Wallet? = null,
@@ -28,7 +38,8 @@ data class DashboardUiState(
     val transaction: Transaction? = null,
     val isCreatingTransaction: Boolean = false,
     val transactionError: TransactionError? = null,
-    val isTransactionFetched: Boolean = false
+    val isTransactionFetched: Boolean = false,
+    val selectedWalletType: WalletType = WalletType.EVM
 ) {
     val hasError: Boolean get() = errorMessage != null
     val hasWallet: Boolean get() = wallet != null && !isEmpty
@@ -49,13 +60,34 @@ class DashboardViewModel(
     val tokenLocator: MutableState<String> = mutableStateOf("")
     val amount: MutableState<String> = mutableStateOf("")
 
-    private val chain = EVMChain.BaseSepolia
+    private val currentChain: Chain
+        get() = _uiState.value.selectedWalletType.chain
+
+    fun selectWalletType(walletType: WalletType) {
+        if (_uiState.value.selectedWalletType != walletType) {
+            _uiState.value = _uiState.value.copy(
+                selectedWalletType = walletType,
+                wallet = null,
+                isEmpty = false,
+                errorMessage = null
+            )
+            clearTransaction()
+            clearInputFields()
+            fetchWallet()
+        }
+    }
+
+    private fun clearInputFields() {
+        recipient.value = ""
+        tokenLocator.value = ""
+        amount.value = ""
+    }
 
     fun fetchWallet() {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
 
-            when (val result = crossmintWallets.getWallet(chain)) {
+            when (val result = crossmintWallets.getWallet(currentChain)) {
                 is Result.Success -> {
                     _uiState.value = _uiState.value.copy(
                         wallet = result.value,
@@ -64,10 +96,12 @@ class DashboardViewModel(
                     )
                 }
                 is Result.Failure -> {
+                    val isEmpty = result.error is WalletError.WalletNotFound
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
-                        errorMessage = result.error.message,
-                        isEmpty = true
+                        wallet = null,
+                        errorMessage = if (!isEmpty) result.error.message else null,
+                        isEmpty = isEmpty
                     )
                 }
             }
@@ -84,7 +118,7 @@ class DashboardViewModel(
 
             val signerData = SignerType.Email(authManager.authState.value.email ?: "")
 
-            when (val result = crossmintWallets.createWallet(chain, signerData)) {
+            when (val result = crossmintWallets.createWallet(currentChain, signerData)) {
                 is Result.Success -> {
                     _uiState.value = _uiState.value.copy(
                         wallet = result.value,
@@ -196,12 +230,18 @@ class DashboardViewModel(
         _uiState.value = _uiState.value.copy(transactionError = null)
     }
 
-    fun updateTokenLocator(newText: String) {
+    fun updateTokenLocator(newText: String): Boolean {
         if (newText.trim().equals("xxx", ignoreCase = true)) {
-            tokenLocator.value = "base-sepolia:usdc"
+            tokenLocator.value = when (_uiState.value.selectedWalletType) {
+                WalletType.EVM -> "base-sepolia:usdc"
+                WalletType.STELLAR -> "stellar:xlm"
+                WalletType.SOLANA -> "solana:sol"
+            }
             amount.value = "0.01"
             recipient.value = _uiState.value.wallet?.address ?: ""
+            return true
         }
+        return false
     }
 
     fun reset() {
