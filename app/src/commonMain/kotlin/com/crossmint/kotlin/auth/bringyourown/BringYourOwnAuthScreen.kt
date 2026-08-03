@@ -150,7 +150,7 @@ fun BringYourOwnAuthScreen(
                 Text(
                     text =
                         """
-                        Specify your JWKS endpoint for validating JWT tokens in the Crossmint admin panel. Then paste your JWT token for a given user below
+                        Specify your JWKS endpoint for validating JWT tokens in the Crossmint admin panel. Then paste the JWT token and the user's email address below
                         """.trimIndent(),
                     fontSize = 14.sp,
                     textAlign = TextAlign.Center,
@@ -169,6 +169,26 @@ fun BringYourOwnAuthScreen(
                         label = { Text("Paste JWT token here") },
                         placeholder = { Text("your-jwt-token-here") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp)),
+                        singleLine = true,
+                        enabled = !uiState.isLoading,
+                        colors =
+                            TextFieldDefaults.colors(
+                                focusedIndicatorColor = Color.Transparent,
+                                unfocusedIndicatorColor = Color.Transparent,
+                                disabledIndicatorColor = Color.Transparent,
+                            ),
+                    )
+
+                    TextField(
+                        value = uiState.email,
+                        onValueChange = { viewModel.updateEmail(it) },
+                        label = { Text("Email address") },
+                        placeholder = { Text("user@example.com") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                         modifier =
                             Modifier
                                 .fillMaxWidth()
