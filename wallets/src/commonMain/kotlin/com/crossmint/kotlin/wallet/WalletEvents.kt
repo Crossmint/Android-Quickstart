@@ -1,5 +1,6 @@
 package com.crossmint.kotlin.wallet
 
+import com.crossmint.kotlin.signers.OTPDeliveryChannel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
@@ -23,5 +24,27 @@ object WalletEvents {
      */
     fun notifyWalletCreated() {
         _walletCreated.tryEmit(Unit)
+    }
+
+    /**
+     * The OTP delivery channel chosen for a phone signer, by phone number.
+     *
+     * The wallet API never returns this, so a wallet fetched with getWallet always falls back to
+     * SMS. The demo keeps the choice here and reapplies it with useSigner on every wallet load.
+     */
+    private val phoneChannels = mutableMapOf<String, OTPDeliveryChannel>()
+
+    fun rememberPhoneChannel(
+        phoneNumber: String,
+        channel: OTPDeliveryChannel?,
+    ) {
+        if (channel != null) phoneChannels[phoneNumber] = channel
+    }
+
+    fun phoneChannel(phoneNumber: String): OTPDeliveryChannel? = phoneChannels[phoneNumber]
+
+    /** Called on sign out, so a channel never carries over to the next session. */
+    fun clearPhoneChannels() {
+        phoneChannels.clear()
     }
 }

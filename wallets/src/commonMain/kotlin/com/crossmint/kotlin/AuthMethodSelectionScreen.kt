@@ -14,9 +14,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Surface
@@ -102,12 +100,6 @@ fun AuthMethodSelectionScreen(
                         }
                     },
                 )
-
-                OrDivider()
-
-                CheckoutButton(onClick = {
-                    navController.navigate(Routes.Checkout)
-                })
             }
 
             Spacer(modifier = Modifier.weight(1f))
@@ -221,59 +213,6 @@ fun SignInButton(
             )
             Text(
                 if (isBYOAMode) "Paste JWT" else "Email + OTP",
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Normal,
-            )
-        }
-    }
-}
-
-@Composable
-fun OrDivider() {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        HorizontalDivider(
-            modifier = Modifier.weight(1f),
-            color = MaterialTheme.colorScheme.outlineVariant,
-        )
-        Text(
-            text = "OR",
-            modifier = Modifier.padding(horizontal = 16.dp),
-            fontSize = 14.sp,
-        )
-        HorizontalDivider(
-            modifier = Modifier.weight(1f),
-            color = MaterialTheme.colorScheme.outlineVariant,
-        )
-    }
-}
-
-@Composable
-fun CheckoutButton(onClick: () -> Unit) {
-    OutlinedButton(
-        onClick = { onClick() },
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .height(52.dp),
-        shape = RoundedCornerShape(12.dp),
-        colors =
-            ButtonDefaults.outlinedButtonColors(
-                contentColor = MaterialTheme.colorScheme.primary,
-            ),
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Text(
-                "Embedded Checkout",
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Medium,
-            )
-            Text(
-                "Payment Flow",
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Normal,
             )

@@ -46,7 +46,6 @@ kotlin {
             // Crossmint SDK (published artifacts)
             implementation(libs.crossmint.sdk)
             implementation(libs.crossmint.compose)
-            implementation(libs.crossmint.checkout)
 
             // Ktor client
             implementation(libs.ktor.client.core)

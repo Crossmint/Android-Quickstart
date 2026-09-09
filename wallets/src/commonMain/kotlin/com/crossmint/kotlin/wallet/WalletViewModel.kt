@@ -64,6 +64,12 @@ class WalletViewModel(
     @OptIn(ExperimentalUuidApi::class)
     private fun newIdempotencyKey(): String = Uuid.random().toString()
 
+    private suspend fun reapplyPhoneChannel(wallet: Wallet) {
+        val admin = wallet.config.adminSigner as? SignerData.Phone ?: return
+        val channel = WalletEvents.phoneChannel(admin.phone) ?: return
+        wallet.useSigner(DelegatedSigner.Phone(admin.phone, channel = channel))
+    }
+
     fun fetchWallet(chain: Chain) {
         val supportedChain = SupportedChain.entries.find { it.chain == chain } ?: return
         viewModelScope.launch {
@@ -82,6 +88,7 @@ class WalletViewModel(
     ) {
         val signers = buildAvailableSigners(wallet)
         val securityLevel = crossmintWallets.getDeviceSignerSecurityLevel(wallet.address)
+        reapplyPhoneChannel(wallet)
         walletCache[supportedChain] = CachedWallet(wallet, securityLevel)
         notFoundChains.remove(supportedChain)
         activeFetches.remove(supportedChain)
@@ -154,6 +161,7 @@ class WalletViewModel(
                         is Result.Success -> {
                             val wallet = result.value
                             val securityLevel = crossmintWallets.getDeviceSignerSecurityLevel(wallet.address)
+                            reapplyPhoneChannel(wallet)
                             walletCache[chain] = CachedWallet(wallet, securityLevel)
                         }
                         is Result.Failure -> {
@@ -205,6 +213,9 @@ class WalletViewModel(
             _uiState.value = _uiState.value.copy(isCreatingWallet = true, errorMessage = null)
             when (val result = crossmintWallets.createWallet(chain, signer, delegatedSigners)) {
                 is Result.Success -> {
+                    if (signer is SignerType.Phone) {
+                        WalletEvents.rememberPhoneChannel(signer.phoneNumber, signer.channel)
+                    }
                     val wallet = result.value
                     val signers = buildAvailableSigners(wallet)
                     val supportedChain = SupportedChain.entries.find { it.chain == chain }
@@ -315,6 +326,7 @@ class WalletViewModel(
         walletCache.clear()
         notFoundChains.clear()
         activeFetches.clear()
+        WalletEvents.clearPhoneChannels()
         _uiState.value = WalletUiState()
     }
 

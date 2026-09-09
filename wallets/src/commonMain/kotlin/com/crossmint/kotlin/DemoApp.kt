@@ -4,7 +4,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -15,12 +18,12 @@ import com.crossmint.kotlin.auth.bringyourown.BringYourOwnAuthScreen
 import com.crossmint.kotlin.auth.crossmint.CrossmintAuthViewModel
 import com.crossmint.kotlin.auth.crossmint.CrossmintOTPEmailScreen
 import com.crossmint.kotlin.auth.crossmint.CrossmintOTPVerificationScreen
-import com.crossmint.kotlin.checkout.CheckoutScreen
 import com.crossmint.kotlin.compose.LocalCrossmintSDK
 import com.crossmint.kotlin.wallet.CreateWalletViewModel
 import com.crossmint.kotlin.wallet.WalletScreen
 import com.crossmint.kotlin.wallet.WalletViewModel
 import com.crossmint.kotlin.wallet.createwallet.CreateWalletScreen
+import kotlinx.coroutines.launch
 
 // AuthMode is defined in androidMain, so we pass it as a parameter from AppRoot
 @Composable
@@ -136,9 +139,44 @@ fun DemoApp(
                 isStaging = isStaging,
             )
         }
+    }
 
-        composable<Routes.Checkout> {
-            CheckoutScreen(navController = navController)
-        }
+    DeviceSignerOTPDialog(
+        walletViewModel = walletViewModel,
+        createWalletViewModel = createWalletViewModel,
+    )
+}
+
+@Composable
+private fun DeviceSignerOTPDialog(
+    walletViewModel: WalletViewModel,
+    createWalletViewModel: CreateWalletViewModel,
+) {
+    val sdk = LocalCrossmintSDK.current
+    val scope = rememberCoroutineScope()
+    var shouldShowOTP by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        sdk.isOTPRequired.collect { shouldShowOTP = it }
+    }
+
+    if (shouldShowOTP) {
+        val walletUiState by walletViewModel.uiState.collectAsState()
+        val createWalletUiState by createWalletViewModel.uiState.collectAsState()
+        val signerType =
+            createWalletUiState.pendingOTPSignerType
+                ?: when (walletUiState.selectedSigner?.type?.lowercase()) {
+                    "phone" -> OTPSignerType.PHONE
+                    else -> OTPSignerType.EMAIL
+                }
+        OTPDialog(
+            signerType = signerType,
+            onOTPSubmit = { scope.launch { sdk.submit(it) } },
+            onDismiss = {
+                scope.launch { sdk.cancelTransaction() }
+                walletViewModel.clearTransaction()
+                shouldShowOTP = false
+            },
+        )
     }
 }

@@ -17,10 +17,14 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -31,7 +35,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.crossmint.kotlin.signers.OTPDeliveryChannel
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AdminSignerCard(
     selectedType: AdminSignerType,
@@ -40,6 +46,8 @@ fun AdminSignerCard(
     onEmailChange: (String) -> Unit,
     phone: String,
     onPhoneChange: (String) -> Unit,
+    phoneChannel: OTPDeliveryChannel,
+    onPhoneChannelChange: (OTPDeliveryChannel) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
 
@@ -131,6 +139,28 @@ fun AdminSignerCard(
                             ),
                         singleLine = true,
                     )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Text(
+                        text = "OTP delivery",
+                        fontSize = 12.sp,
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                        OTPDeliveryChannel.entries.forEachIndexed { index, channel ->
+                            SegmentedButton(
+                                selected = phoneChannel == channel,
+                                onClick = { onPhoneChannelChange(channel) },
+                                shape =
+                                    SegmentedButtonDefaults.itemShape(
+                                        index = index,
+                                        count = OTPDeliveryChannel.entries.size,
+                                    ),
+                            ) { Text(channel.displayName) }
+                        }
+                    }
                 }
                 AdminSignerType.API_KEY -> {
                     Text(
