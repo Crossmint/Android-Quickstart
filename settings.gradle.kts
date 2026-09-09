@@ -25,4 +25,4 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "Crossmint Quickstart"
-include(":app")
+include(":wallets")
