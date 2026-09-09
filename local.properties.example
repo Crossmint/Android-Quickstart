@@ -9,4 +9,4 @@ sdk.dir=/path/to/your/Android/sdk
 
 # Crossmint API Key (replace with your actual API key)
 # Get your API key from: https://www.crossmint.com/console
-CROSSMINT_API_KEY=your_crossmint_api_key_here
+crossmint_api_key=your_crossmint_api_key_here

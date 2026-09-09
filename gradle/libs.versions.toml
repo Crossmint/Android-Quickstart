@@ -14,6 +14,8 @@ composeMultiplatform = "1.9.1"
 kotlin = "2.2.21"
 kotlinx-serialization = "1.9.0"
 ktor = "3.3.1"
+material3Adaptive = "1.2.0"
+material3AdaptiveNavigationSuite = "1.9.0"
 navigationCompose = "2.9.1"
 processPhoenix = "3.0.0"
 
@@ -30,10 +32,16 @@ ktor-client-content-negotiation = { module = "io.ktor:ktor-client-content-negoti
 ktor-serialization-kotlinx-json = { module = "io.ktor:ktor-serialization-kotlinx-json", version.ref = "ktor" }
 ktor-client-android = { module = "io.ktor:ktor-client-android", version.ref = "ktor" }
 navigation-compose = { module = "org.jetbrains.androidx.navigation:navigation-compose", version.ref = "navigationCompose" }
+material3-adaptive = { module = "org.jetbrains.compose.material3.adaptive:adaptive", version.ref = "material3Adaptive" }
+material3-adaptive-layout = { module = "org.jetbrains.compose.material3.adaptive:adaptive-layout", version.ref = "material3Adaptive" }
+material3-adaptive-navigation = { module = "org.jetbrains.compose.material3.adaptive:adaptive-navigation", version.ref = "material3Adaptive" }
+material3-adaptive-navigation-suite = { module = "org.jetbrains.compose.material3:material3-adaptive-navigation-suite", version.ref = "material3AdaptiveNavigationSuite" }
 process-phoenix = { module = "com.jakewharton:process-phoenix", version.ref = "processPhoenix" }
 crossmint-sdk = { module = "com.crossmint:crossmint-sdk", version.ref = "crossmint" }
 crossmint-compose = { module = "com.crossmint:crossmint-compose", version.ref = "crossmint" }
+crossmint-core = { module = "com.crossmint:sdk-core", version.ref = "crossmint" }
 crossmint-checkout = { module = "com.crossmint:sdk-checkout", version.ref = "crossmint" }
+crossmint-identity = { module = "com.crossmint:sdk-identity", version.ref = "crossmint" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }
