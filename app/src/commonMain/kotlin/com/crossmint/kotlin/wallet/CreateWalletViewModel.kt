@@ -3,6 +3,7 @@ package com.crossmint.kotlin.wallet
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.NavController
+import com.crossmint.kotlin.OTPSignerType
 import com.crossmint.kotlin.signers.DelegatedSigner
 import com.crossmint.kotlin.signers.SignerType
 import com.crossmint.kotlin.types.Chain
@@ -18,6 +19,7 @@ data class CreateWalletUiState(
     val isCreating: Boolean = false,
     val errorMessage: String? = null,
     val createdWallet: Wallet? = null,
+    val pendingOTPSignerType: OTPSignerType? = null,
 ) {
     val hasError: Boolean
         get() = errorMessage != null
@@ -44,6 +46,16 @@ class CreateWalletViewModel(
                 _uiState.value.copy(
                     isCreating = true,
                     errorMessage = null,
+                    pendingOTPSignerType =
+                        if (deviceSigner) {
+                            when (signer) {
+                                is SignerType.Email -> OTPSignerType.EMAIL
+                                is SignerType.Phone -> OTPSignerType.PHONE
+                                SignerType.ApiKey, is SignerType.Passkey -> null
+                            }
+                        } else {
+                            null
+                        },
                 )
 
             when (
@@ -56,11 +68,15 @@ class CreateWalletViewModel(
                     )
             ) {
                 is Result.Success -> {
+                    if (signer is SignerType.Phone) {
+                        WalletEvents.rememberPhoneChannel(signer.phoneNumber, signer.channel)
+                    }
                     _uiState.value =
                         _uiState.value.copy(
                             createdWallet = result.value,
                             isCreating = false,
                             errorMessage = null,
+                            pendingOTPSignerType = null,
                         )
                     // Signal WalletViewModel to refresh
                     WalletEvents.notifyWalletCreated()
@@ -72,6 +88,7 @@ class CreateWalletViewModel(
                         _uiState.value.copy(
                             isCreating = false,
                             errorMessage = "Failed to create wallet: ${result.error.message}",
+                            pendingOTPSignerType = null,
                         )
                 }
             }

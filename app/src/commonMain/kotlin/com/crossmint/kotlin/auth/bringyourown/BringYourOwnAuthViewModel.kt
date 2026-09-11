@@ -49,8 +49,6 @@ class BringYourOwnAuthViewModel(
                 return@launch
             }
 
-            // This function doesn't actually validate the JWT against the JWKS endpoint, but my presumption is that it
-            // would. Right now we are kind of implicitly relying on the first getWallet api call to validate our JWT token.
             authManager.setJWT(jwt)
 
             showToast("Authentication successful")

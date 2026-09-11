@@ -36,6 +36,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.crossmint.kotlin.signers.DelegatedSigner
+import com.crossmint.kotlin.signers.OTPDeliveryChannel
 import com.crossmint.kotlin.signers.SignerType
 import com.crossmint.kotlin.types.Chain
 import com.crossmint.kotlin.wallet.CreateWalletViewModel
@@ -58,6 +59,7 @@ fun CreateWalletScreen(
     var selectedAdminSignerType by remember { mutableStateOf(AdminSignerType.EMAIL) }
     var adminEmail by remember { mutableStateOf(userEmail ?: "") }
     var adminPhone by remember { mutableStateOf("") }
+    var adminPhoneChannel by remember { mutableStateOf(OTPDeliveryChannel.SMS) }
 
     val delegatedSigners = remember { mutableStateListOf<DelegatedSignerEntry>() }
 
@@ -99,7 +101,8 @@ fun CreateWalletScreen(
                             val adminSigner =
                                 when (selectedAdminSignerType) {
                                     AdminSignerType.EMAIL -> SignerType.Email(adminEmail)
-                                    AdminSignerType.PHONE -> SignerType.Phone(adminPhone)
+                                    AdminSignerType.PHONE ->
+                                        SignerType.Phone(adminPhone, channel = adminPhoneChannel)
                                     AdminSignerType.API_KEY -> SignerType.ApiKey
                                 }
                             val deviceEntry = delegatedSigners.firstOrNull { it.type == DelegatedSignerType.DEVICE }
@@ -182,6 +185,8 @@ fun CreateWalletScreen(
                 onEmailChange = { adminEmail = it },
                 phone = adminPhone,
                 onPhoneChange = { adminPhone = it },
+                phoneChannel = adminPhoneChannel,
+                onPhoneChannelChange = { adminPhoneChannel = it },
             )
 
             Spacer(modifier = Modifier.height(32.dp))

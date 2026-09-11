@@ -26,3 +26,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "Crossmint Quickstart"
 include(":app")
+include(":checkout")

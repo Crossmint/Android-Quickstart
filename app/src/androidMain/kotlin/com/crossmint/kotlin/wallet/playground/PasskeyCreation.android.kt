@@ -1,23 +1,152 @@
 package com.crossmint.kotlin.wallet.playground
 
+import android.app.Activity
 import android.content.Context
+import android.content.ContextWrapper
 import android.util.Base64
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTag
 import androidx.credentials.CreatePublicKeyCredentialRequest
 import androidx.credentials.CreatePublicKeyCredentialResponse
 import androidx.credentials.CredentialManager
 import androidx.credentials.exceptions.CreateCredentialCancellationException
 import com.crossmint.kotlin.signers.DelegatedSigner
+import com.crossmint.kotlin.utility.exposeTestTags
 import java.math.BigInteger
 import java.security.SecureRandom
+import kotlinx.coroutines.CompletableDeferred
 import org.json.JSONObject
 
 @Composable
 actual fun rememberPasskeyCreator(): (suspend (name: String) -> DelegatedSigner.Passkey?)? {
     val context = LocalContext.current
+
+    // Mock mode is for CI e2e flows ONLY: GitHub Actions emulators cannot create real
+    // passkeys via CredentialManager (no signed-in Google account). The Maestro passkey
+    // flow launches the app with `arguments: { mockPasskey: true }`, which Android
+    // delivers as launcher-intent extras. Local/manual testing keeps the real path.
+    val mockMode =
+        remember(context) {
+            context
+                .findActivity()
+                ?.intent
+                ?.extras
+                ?.get("mockPasskey")
+                ?.toString() == "true"
+        }
+
+    if (mockMode) {
+        return rememberMockPasskeyCreator()
+    }
     return { name -> createPasskeySigner(context, name) }
 }
+
+private tailrec fun Context.findActivity(): Activity? =
+    when (this) {
+        is Activity -> this
+        is ContextWrapper -> baseContext.findActivity()
+        else -> null
+    }
+
+// ---------------------------------------------------------------------------
+// Mock passkey creation (CI e2e only) — mirrors the Flutter playground dialog.
+// ---------------------------------------------------------------------------
+
+@Composable
+private fun rememberMockPasskeyCreator(): suspend (name: String) -> DelegatedSigner.Passkey? {
+    var pendingRequest by remember { mutableStateOf<PendingPasskeyRequest?>(null) }
+
+    pendingRequest?.let { request ->
+        AlertDialog(
+            onDismissRequest = {
+                request.result.complete(null)
+                pendingRequest = null
+            },
+            // AlertDialog hosts its own window: re-expose testTags for Maestro.
+            modifier = Modifier.exposeTestTags(),
+            title = { Text("Create Passkey (Mock)") },
+            text = {
+                Text(
+                    "Name: ${request.name}\n\n" +
+                        "Playground-only simulation. On a real device this would trigger the " +
+                        "Android Credential Manager passkey prompt. Tap Simulate to return " +
+                        "mock credential data.",
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        request.result.complete(mockPasskeySigner(request.name))
+                        pendingRequest = null
+                    },
+                    modifier = Modifier.semantics { testTag = "passkey-simulate-button" },
+                ) {
+                    Text("Simulate")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        request.result.complete(null)
+                        pendingRequest = null
+                    },
+                ) {
+                    Text("Cancel")
+                }
+            },
+        )
+    }
+
+    return { name ->
+        val result = CompletableDeferred<DelegatedSigner.Passkey?>()
+        pendingRequest = PendingPasskeyRequest(name, result)
+        try {
+            result.await()
+        } finally {
+            pendingRequest = null
+        }
+    }
+}
+
+private class PendingPasskeyRequest(
+    val name: String,
+    val result: CompletableDeferred<DelegatedSigner.Passkey?>,
+)
+
+private fun mockPasskeySigner(name: String): DelegatedSigner.Passkey {
+    val random = SecureRandom()
+
+    fun hex(byteCount: Int): String {
+        val bytes = ByteArray(byteCount).also { random.nextBytes(it) }
+        return bytes.joinToString("") { "%02x".format(it) }
+    }
+
+    // The 0x prefix is required: the register-signer API validates publicKey.x/y as
+    // "a valid positive BigInt decimal or hex string" and rejects bare hex with HTTP 400.
+    // The server does not validate attestation/cryptography, so random values are
+    // accepted — mirrors the Flutter playground mock.
+    return DelegatedSigner.Passkey(
+        id = "mock-credential-${hex(8)}",
+        name = name,
+        publicKeyX = "0x${hex(32)}",
+        publicKeyY = "0x${hex(32)}",
+    )
+}
+
+// ---------------------------------------------------------------------------
+// Real passkey creation via Android Credential Manager (default path).
+// ---------------------------------------------------------------------------
 
 private suspend fun createPasskeySigner(
     context: Context,
