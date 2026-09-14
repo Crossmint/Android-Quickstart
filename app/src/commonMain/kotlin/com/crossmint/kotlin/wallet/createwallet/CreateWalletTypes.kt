@@ -7,6 +7,7 @@ import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Smartphone
 import androidx.compose.ui.graphics.vector.ImageVector
+import com.crossmint.kotlin.signers.OTPDeliveryChannel
 
 enum class AdminSignerType(
     val displayName: String,
@@ -15,6 +16,13 @@ enum class AdminSignerType(
     PHONE("Phone"),
     API_KEY("API Key"),
 }
+
+val OTPDeliveryChannel.displayName: String
+    get() =
+        when (this) {
+            OTPDeliveryChannel.SMS -> "SMS"
+            OTPDeliveryChannel.WHATSAPP -> "WhatsApp"
+        }
 
 enum class DelegatedSignerType(
     val displayName: String,

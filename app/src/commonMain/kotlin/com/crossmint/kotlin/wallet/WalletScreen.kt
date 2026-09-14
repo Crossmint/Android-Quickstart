@@ -65,10 +65,7 @@ import com.crossmint.crossmintdemoapp.generated.resources.ic_crossmint
 import com.crossmint.crossmintdemoapp.generated.resources.ic_eth
 import com.crossmint.crossmintdemoapp.generated.resources.ic_solana
 import com.crossmint.crossmintdemoapp.generated.resources.ic_stellar
-import com.crossmint.kotlin.CrossmintSDK
 import com.crossmint.kotlin.Deps
-import com.crossmint.kotlin.OTPDialog
-import com.crossmint.kotlin.OTPSignerType
 import com.crossmint.kotlin.Routes
 import com.crossmint.kotlin.auth.AuthMethod
 import com.crossmint.kotlin.auth.crossmint.CrossmintAuthViewModel
@@ -108,13 +105,8 @@ fun WalletScreen(
     var showSignersSheet by remember { mutableStateOf(false) }
     var showActivitySheet by remember { mutableStateOf(false) }
     var showSigningSheet by remember { mutableStateOf(false) }
-    val shouldShowOTP = remember { mutableStateOf(false) }
     var isRefreshing by remember { mutableStateOf(false) }
     val passkeyCreator = rememberPasskeyCreator()
-
-    LaunchedEffect(Unit) {
-        CrossmintSDK.shared.isOTPRequired.collect { shouldShowOTP.value = it }
-    }
 
     LaunchedEffect(Unit) {
         walletViewModel.sessionExpired.collect {
@@ -409,23 +401,6 @@ fun WalletScreen(
                 walletViewModel = walletViewModel,
                 uiState = uiState,
                 onDismiss = { showSigningSheet = false },
-            )
-        }
-
-        if (shouldShowOTP.value) {
-            val signerType =
-                when (uiState.selectedSigner?.type?.lowercase()) {
-                    "phone" -> OTPSignerType.PHONE
-                    else -> OTPSignerType.EMAIL
-                }
-            OTPDialog(
-                signerType = signerType,
-                onOTPSubmit = { scope.launch { CrossmintSDK.shared.submit(it) } },
-                onDismiss = {
-                    scope.launch { CrossmintSDK.shared.cancelTransaction() }
-                    walletViewModel.clearTransaction()
-                    shouldShowOTP.value = false
-                },
             )
         }
     }

@@ -20,7 +20,4 @@ class Routes {
 
     @Serializable
     object CreateWallet
-
-    @Serializable
-    object Checkout
 }
