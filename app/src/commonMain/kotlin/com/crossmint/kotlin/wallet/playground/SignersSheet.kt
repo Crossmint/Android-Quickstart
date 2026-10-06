@@ -49,6 +49,7 @@ import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -61,12 +62,15 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.crossmint.kotlin.signers.DelegatedSigner
+import com.crossmint.kotlin.types.ChainType
+import com.crossmint.kotlin.types.DelegatedSignerStatus
+import com.crossmint.kotlin.types.RecoveryMethod
 import com.crossmint.kotlin.types.SignerData
 import com.crossmint.kotlin.utility.exposeTestTags
-import com.crossmint.kotlin.utility.truncateLocator
 import com.crossmint.kotlin.wallet.WalletUiState
 import com.crossmint.kotlin.wallet.WalletViewModel
 import com.crossmint.kotlin.wallet.createwallet.DelegatedSignerType
@@ -82,23 +86,27 @@ fun SignersSheet(
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var showAddSignerSheet by remember { mutableStateOf(false) }
+    var showAddRecoveryMethodSheet by remember { mutableStateOf(false) }
     var removingLocator by remember { mutableStateOf<String?>(null) }
     var removedLocators by remember { mutableStateOf(setOf<String>()) }
 
     val wallet = uiState.wallet
+    val recoveryMethods =
+        wallet
+            ?.config
+            ?.recoveryMethods
+            .orEmpty()
+            .filter { it.signer.locator !in removedLocators }
+    val canChangeRecoveryMethods = wallet?.chainType == ChainType.SOLANA || wallet?.chainType == ChainType.STELLAR
     val delegatedSigners =
         uiState.availableSigners
             .filter { !it.isAdmin && it.locator !in removedLocators }
 
     LaunchedEffect(uiState.isModifyingSigners) {
-        if (!uiState.isModifyingSigners) removingLocator = null
-    }
-
-    LaunchedEffect(uiState.signerOperationError) {
+        if (uiState.isModifyingSigners) return@LaunchedEffect
         val locator = removingLocator
-        if (uiState.signerOperationError != null && locator != null) {
-            removedLocators = removedLocators - locator
-        }
+        if (uiState.signerOperationError != null && locator != null) removedLocators = removedLocators - locator
+        removingLocator = null
     }
 
     ModalBottomSheet(
@@ -138,35 +146,43 @@ fun SignersSheet(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                     elevation = CardDefaults.cardElevation(0.dp),
                 ) {
-                    val admin = wallet.config.adminSigner
-                    ListItem(
-                        headlineContent = {
-                            Text(signerTypeLabel(admin), fontWeight = FontWeight.Medium)
+                    recoveryMethods.forEachIndexed { index, recovery ->
+                        if (index > 0) HorizontalDivider()
+                        if (canChangeRecoveryMethods && recoveryMethods.size > 1) {
+                            RemovableRow(
+                                key = recovery.signer.locator,
+                                onRemove = {
+                                    if (removingLocator == null) {
+                                        removingLocator = recovery.signer.locator
+                                        removedLocators = removedLocators + recovery.signer.locator
+                                        walletViewModel.removeRecoveryMethodFromWallet(recovery.signer.locator)
+                                        true
+                                    } else {
+                                        false
+                                    }
+                                },
+                            ) {
+                                RecoveryMethodRow(
+                                    recovery,
+                                    index,
+                                    isRemoving =
+                                        removingLocator == recovery.signer.locator,
+                                )
+                            }
+                        } else {
+                            RecoveryMethodRow(recovery, index, isRemoving = false)
+                        }
+                    }
+                }
+
+                if (canChangeRecoveryMethods) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    AddRecoveryMethodRow(
+                        enabled = !uiState.isModifyingSigners,
+                        onClick = {
+                            walletViewModel.clearAddSignerState()
+                            showAddRecoveryMethodSheet = true
                         },
-                        supportingContent = {
-                            Text(
-                                admin.locator.truncateLocator(),
-                                fontFamily = FontFamily.Monospace,
-                                fontSize = 12.sp,
-                            )
-                        },
-                        leadingContent = {
-                            Icon(
-                                signerIcon(admin),
-                                null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(22.dp),
-                            )
-                        },
-                        trailingContent = {
-                            Text(
-                                "Recovery",
-                                fontSize = 12.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                fontWeight = FontWeight.Medium,
-                            )
-                        },
-                        colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surface),
                     )
                 }
 
@@ -253,9 +269,11 @@ fun SignersSheet(
                                     },
                                     supportingContent = {
                                         Text(
-                                            signer.locator.truncateLocator(),
+                                            signer.locator,
                                             fontFamily = FontFamily.Monospace,
                                             fontSize = 12.sp,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
                                             modifier = Modifier.semantics { testTag = "signer-$index-locator" },
                                         )
                                     },
@@ -381,6 +399,126 @@ fun SignersSheet(
             },
         )
     }
+
+    if (showAddRecoveryMethodSheet) {
+        AddSignerSheet(
+            title = "Add Recovery Method",
+            compatibleTypes =
+                listOf(DelegatedSignerType.EMAIL, DelegatedSignerType.PHONE, DelegatedSignerType.EXTERNAL_WALLET),
+            hasDeviceSigner = false,
+            passkeyCreator = null,
+            onDismiss = { showAddRecoveryMethodSheet = false },
+            onAddDevice = {},
+            onAddSigner = { recoveryMethod ->
+                showAddRecoveryMethodSheet = false
+                walletViewModel.addRecoveryMethodToWallet(recoveryMethod)
+            },
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun RemovableRow(
+    key: String,
+    onRemove: () -> Boolean,
+    content: @Composable () -> Unit,
+) = key(key) {
+    val dismissState =
+        rememberSwipeToDismissBoxState(
+            confirmValueChange = { value -> value == SwipeToDismissBoxValue.EndToStart && onRemove() },
+        )
+    SwipeToDismissBox(
+        state = dismissState,
+        enableDismissFromStartToEnd = false,
+        backgroundContent = {
+            Box(
+                modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.error),
+                contentAlignment = Alignment.CenterEnd,
+            ) {
+                Icon(
+                    Icons.Filled.Delete,
+                    "Remove",
+                    tint = MaterialTheme.colorScheme.onError,
+                    modifier = Modifier.padding(end = 20.dp).size(22.dp),
+                )
+            }
+        },
+    ) {
+        content()
+    }
+}
+
+@Composable
+private fun AddRecoveryMethodRow(
+    enabled: Boolean,
+    onClick: () -> Unit,
+) {
+    val tint = if (enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
+    Card(
+        modifier = Modifier.fillMaxWidth().semantics { testTag = "recovery-methods-add-button" },
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(0.dp),
+    ) {
+        ListItem(
+            headlineContent = { Text("Add Recovery Method", color = tint, fontWeight = FontWeight.Medium) },
+            leadingContent = { Icon(Icons.Filled.Add, null, tint = tint) },
+            colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surface),
+            modifier = Modifier.clickable(enabled = enabled, onClick = onClick),
+        )
+    }
+}
+
+@Composable
+private fun RecoveryMethodRow(
+    recovery: RecoveryMethod,
+    index: Int,
+    isRemoving: Boolean,
+) {
+    ListItem(
+        headlineContent = { Text(signerTypeLabel(recovery.signer), fontWeight = FontWeight.Medium) },
+        supportingContent = {
+            Text(
+                recovery.signer.locator,
+                fontFamily = FontFamily.Monospace,
+                fontSize = 12.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.semantics { testTag = "recovery-signer-$index-locator" },
+            )
+        },
+        leadingContent = {
+            Icon(
+                signerIcon(recovery.signer),
+                null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(22.dp),
+            )
+        },
+        trailingContent = {
+            if (isRemoving) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(18.dp),
+                    color = MaterialTheme.colorScheme.primary,
+                    strokeWidth = 2.dp,
+                )
+            } else {
+                Text(
+                    listOfNotNull(
+                        if (index == 0) "Primary" else "Recovery",
+                        recoveryStatusLabel(recovery.status),
+                    ).joinToString(" · "),
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.semantics { testTag = "recovery-signer-$index-role" },
+                )
+            }
+        },
+        colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surface),
+        modifier = Modifier.semantics { testTag = "recovery-signer-$index" },
+    )
 }
 
 @Composable
@@ -398,6 +536,7 @@ private fun SignerSectionLabel(text: String) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AddSignerSheet(
+    title: String = "Add Signer",
     compatibleTypes: List<DelegatedSignerType>,
     hasDeviceSigner: Boolean,
     passkeyCreator: (suspend (name: String) -> DelegatedSigner.Passkey?)?,
@@ -421,7 +560,8 @@ private fun AddSignerSheet(
 
     val isValid =
         when (selectedType) {
-            DelegatedSignerType.EXTERNAL_WALLET -> address.isNotBlank()
+            DelegatedSignerType.EXTERNAL_WALLET, DelegatedSignerType.EMAIL, DelegatedSignerType.PHONE ->
+                address.isNotBlank()
             DelegatedSignerType.PASSKEY -> passkeyName.isNotBlank()
             else -> true
         }
@@ -440,7 +580,7 @@ private fun AddSignerSheet(
                     .padding(start = 20.dp, end = 8.dp, bottom = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("Add Signer", fontSize = 20.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+            Text(title, fontSize = 20.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
             TextButton(onClick = onDismiss) {
                 Text("Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -508,6 +648,8 @@ private fun AddSignerSheet(
                                 DelegatedSignerType.DEVICE -> onAddDevice()
                                 DelegatedSignerType.EXTERNAL_WALLET ->
                                     onAddSigner(DelegatedSigner.ExternalWallet(address.trim()))
+                                DelegatedSignerType.EMAIL -> onAddSigner(DelegatedSigner.Email(address.trim()))
+                                DelegatedSignerType.PHONE -> onAddSigner(DelegatedSigner.Phone(address.trim()))
                                 else -> {}
                             }
                         }
@@ -591,9 +733,17 @@ private fun SignerInputSection(
     passkeyError: String?,
 ) {
     when (selectedType) {
-        DelegatedSignerType.EXTERNAL_WALLET -> {
+        DelegatedSignerType.EXTERNAL_WALLET, DelegatedSignerType.EMAIL, DelegatedSignerType.PHONE -> {
             Spacer(modifier = Modifier.height(20.dp))
-            SignerSectionLabel("Address")
+            SignerSectionLabel(
+                if (selectedType ==
+                    DelegatedSignerType.EXTERNAL_WALLET
+                ) {
+                    "Address"
+                } else {
+                    selectedType.displayName
+                },
+            )
             Spacer(modifier = Modifier.height(6.dp))
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -606,7 +756,11 @@ private fun SignerInputSection(
                     onValueChange = onAddressChange,
                     placeholder = {
                         Text(
-                            "0x…",
+                            when (selectedType) {
+                                DelegatedSignerType.EMAIL -> "name@example.com"
+                                DelegatedSignerType.PHONE -> "+15551234567"
+                                else -> "0x…"
+                            },
                             color = MaterialTheme.colorScheme.outlineVariant,
                             fontFamily = FontFamily.Monospace,
                         )
@@ -675,6 +829,15 @@ private fun SignerInputSection(
     }
 }
 
+private fun recoveryStatusLabel(status: DelegatedSignerStatus): String? =
+    when (status) {
+        DelegatedSignerStatus.ACTIVE -> null
+        DelegatedSignerStatus.AWAITING_APPROVAL -> "Pending approval"
+        DelegatedSignerStatus.PENDING -> "Pending"
+        DelegatedSignerStatus.FAILED -> "Failed"
+        DelegatedSignerStatus.UNKNOWN -> null
+    }
+
 private fun signerTypeLabel(signer: SignerData): String =
     when (signer) {
         is SignerData.Email -> "Email"
@@ -683,6 +846,7 @@ private fun signerTypeLabel(signer: SignerData): String =
         is SignerData.ApiKey -> "API Key"
         is SignerData.ExternalWallet -> "External Wallet"
         is SignerData.Device -> "Device"
+        is SignerData.Server -> "Server"
     }
 
 private fun signerIcon(signer: SignerData): ImageVector =

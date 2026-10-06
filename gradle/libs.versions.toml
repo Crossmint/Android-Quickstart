@@ -1,5 +1,5 @@
 [versions]
-crossmint = "1.2.0"
+crossmint = "1.3.0"
 
 agp = "8.12.2"
 android-compileSdk = "35"

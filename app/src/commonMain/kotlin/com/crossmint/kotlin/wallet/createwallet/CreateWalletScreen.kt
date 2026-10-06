@@ -32,13 +32,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.crossmint.kotlin.signers.DelegatedSigner
-import com.crossmint.kotlin.signers.OTPDeliveryChannel
-import com.crossmint.kotlin.signers.SignerType
 import com.crossmint.kotlin.types.Chain
+import com.crossmint.kotlin.types.EVMChain
+import com.crossmint.kotlin.types.SolanaChain
 import com.crossmint.kotlin.wallet.CreateWalletViewModel
 import kotlinx.coroutines.launch
 
@@ -56,22 +58,18 @@ fun CreateWalletScreen(
     val scrollState = rememberScrollState()
     val scope = rememberCoroutineScope()
 
-    var selectedAdminSignerType by remember { mutableStateOf(AdminSignerType.EMAIL) }
-    var adminEmail by remember { mutableStateOf(userEmail ?: "") }
-    var adminPhone by remember { mutableStateOf("") }
-    var adminPhoneChannel by remember { mutableStateOf(OTPDeliveryChannel.SMS) }
+    val supportsRecoveryList = chain !is EVMChain
+    val recoveryTypes =
+        AdminSignerType.entries.filter { it != AdminSignerType.EXTERNAL_WALLET || chain is SolanaChain }
+    val recoverySigners =
+        remember { mutableStateListOf(RecoverySignerEntry(type = AdminSignerType.EMAIL, email = userEmail ?: "")) }
 
     val delegatedSigners = remember { mutableStateListOf<DelegatedSignerEntry>() }
 
     var showSignerTypePicker by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState()
 
-    val isValid =
-        when (selectedAdminSignerType) {
-            AdminSignerType.EMAIL -> adminEmail.isNotBlank() && adminEmail.contains("@")
-            AdminSignerType.PHONE -> adminPhone.isNotBlank()
-            AdminSignerType.API_KEY -> true
-        }
+    val isValid = recoverySigners.canCreateWallet()
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.surface,
@@ -98,36 +96,16 @@ fun CreateWalletScreen(
                 actions = {
                     TextButton(
                         onClick = {
-                            val adminSigner =
-                                when (selectedAdminSignerType) {
-                                    AdminSignerType.EMAIL -> SignerType.Email(adminEmail)
-                                    AdminSignerType.PHONE ->
-                                        SignerType.Phone(adminPhone, channel = adminPhoneChannel)
-                                    AdminSignerType.API_KEY -> SignerType.ApiKey
-                                }
                             val deviceEntry = delegatedSigners.firstOrNull { it.type == DelegatedSignerType.DEVICE }
-                            val delegated =
-                                delegatedSigners.mapNotNull { entry ->
-                                    when (entry.type) {
-                                        DelegatedSignerType.EMAIL ->
-                                            if (entry.email.isNotBlank()) DelegatedSigner.Email(entry.email) else null
-                                        DelegatedSignerType.PHONE ->
-                                            if (entry.phone.isNotBlank()) DelegatedSigner.Phone(entry.phone) else null
-                                        DelegatedSignerType.EXTERNAL_WALLET ->
-                                            if (entry.address.isNotBlank()) {
-                                                DelegatedSigner.ExternalWallet(
-                                                    entry.address,
-                                                )
-                                            } else {
-                                                null
-                                            }
-                                        DelegatedSignerType.DEVICE -> null
-                                        DelegatedSignerType.PASSKEY -> null
-                                    }
-                                }
-                            viewModel.createWallet(chain, adminSigner, delegated, deviceSigner = deviceEntry != null)
+                            viewModel.createWallet(
+                                chain = chain,
+                                recoveryMethods = recoverySigners.map { it.toSignerType() },
+                                delegatedSigners = delegatedSigners.mapNotNull { it.toDelegatedSigner() },
+                                deviceSigner = deviceEntry != null,
+                            )
                         },
                         enabled = isValid && !isCreating,
+                        modifier = Modifier.semantics { testTag = "recovery-create-wallet-button" },
                     ) {
                         if (isCreating) {
                             CircularProgressIndicator(
@@ -167,27 +145,46 @@ fun CreateWalletScreen(
             Spacer(modifier = Modifier.height(16.dp))
 
             Text(
-                text = "Admin Signer",
+                text = if (supportsRecoveryList) "Recovery Signers" else "Recovery Signer",
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Medium,
             )
             Text(
-                text = "The primary signer that controls this wallet",
+                text =
+                    if (supportsRecoveryList) {
+                        "Each one can control this wallet on its own. The first is the primary."
+                    } else {
+                        "The primary signer that controls this wallet"
+                    },
                 fontSize = 12.sp,
             )
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            AdminSignerCard(
-                selectedType = selectedAdminSignerType,
-                onTypeChange = { selectedAdminSignerType = it },
-                email = adminEmail,
-                onEmailChange = { adminEmail = it },
-                phone = adminPhone,
-                onPhoneChange = { adminPhone = it },
-                phoneChannel = adminPhoneChannel,
-                onPhoneChannelChange = { adminPhoneChannel = it },
-            )
+            recoverySigners.forEachIndexed { index, entry ->
+                AdminSignerCard(
+                    index = index,
+                    types = recoveryTypes,
+                    selectedType = entry.type,
+                    onTypeChange = { recoverySigners[index] = entry.copy(type = it) },
+                    email = entry.email,
+                    onEmailChange = { recoverySigners[index] = entry.copy(email = it) },
+                    phone = entry.phone,
+                    onPhoneChange = { recoverySigners[index] = entry.copy(phone = it) },
+                    phoneChannel = entry.phoneChannel,
+                    onPhoneChannelChange = { recoverySigners[index] = entry.copy(phoneChannel = it) },
+                    onRemove = if (index > 0) ({ recoverySigners.removeAt(index) }) else null,
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+
+            if (supportsRecoveryList) {
+                AddSignerButton(
+                    label = "Add Recovery Signer",
+                    onClick = { recoverySigners.add(RecoverySignerEntry(type = AdminSignerType.EMAIL)) },
+                    modifier = Modifier.semantics { testTag = "recovery-add-signer-button" },
+                )
+            }
 
             Spacer(modifier = Modifier.height(32.dp))
 
@@ -221,6 +218,7 @@ fun CreateWalletScreen(
             }
 
             AddSignerButton(
+                label = "Add Delegated Signer",
                 onClick = { showSignerTypePicker = true },
             )
 
@@ -280,3 +278,19 @@ fun CreateWalletScreen(
         }
     }
 }
+
+private fun DelegatedSignerEntry.toDelegatedSigner(): DelegatedSigner? =
+    when (type) {
+        DelegatedSignerType.EMAIL -> if (email.isNotBlank()) DelegatedSigner.Email(email) else null
+        DelegatedSignerType.PHONE -> if (phone.isNotBlank()) DelegatedSigner.Phone(phone) else null
+        DelegatedSignerType.EXTERNAL_WALLET ->
+            if (address.isNotBlank()) {
+                DelegatedSigner.ExternalWallet(
+                    address,
+                )
+            } else {
+                null
+            }
+        DelegatedSignerType.DEVICE -> null
+        DelegatedSignerType.PASSKEY -> null
+    }

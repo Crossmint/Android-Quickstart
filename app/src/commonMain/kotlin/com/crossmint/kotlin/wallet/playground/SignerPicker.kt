@@ -27,9 +27,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.crossmint.kotlin.utility.truncateLocator
 import com.crossmint.kotlin.wallet.SignerOption
 import com.crossmint.kotlin.wallet.WalletUiState
 
@@ -62,10 +62,12 @@ internal fun SignerPickerSection(
                         fontSize = 14.sp,
                     )
                     Text(
-                        sel.locator.truncateLocator(),
+                        sel.locator,
                         fontSize = 11.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontFamily = FontFamily.Monospace,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                 } else {
                     Text("Select signer", fontWeight = FontWeight.Medium, fontSize = 14.sp)
@@ -103,10 +105,12 @@ internal fun SignerDropdownItem(
                 fontWeight = FontWeight.Medium,
             )
             Text(
-                signer.locator.truncateLocator(),
+                signer.locator,
                 fontSize = 11.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontFamily = FontFamily.Monospace,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
         }
         if (isSelected) {
