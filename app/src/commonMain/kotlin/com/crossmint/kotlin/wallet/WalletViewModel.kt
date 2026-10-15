@@ -10,6 +10,7 @@ import com.crossmint.kotlin.signers.DelegatedSigner
 import com.crossmint.kotlin.signers.SignerSelection
 import com.crossmint.kotlin.signers.SignerType
 import com.crossmint.kotlin.types.Chain
+import com.crossmint.kotlin.types.ChainType
 import com.crossmint.kotlin.types.DelegatedSignerData
 import com.crossmint.kotlin.types.DelegatedSignerStatus
 import com.crossmint.kotlin.types.EVMWallet
@@ -19,6 +20,7 @@ import com.crossmint.kotlin.types.SignerData
 import com.crossmint.kotlin.types.TransactionError
 import com.crossmint.kotlin.types.Wallet
 import com.crossmint.kotlin.types.WalletError
+import com.crossmint.kotlin.wallet.externalwallet.DemoExternalWallet
 import com.crossmint.kotlin.wallets.CrossmintWallets
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
@@ -39,6 +41,8 @@ class WalletViewModel(
     private val crossmintWallets: CrossmintWallets,
     private val authManager: AuthManager,
 ) : ViewModel() {
+    var passkeyActivator: (suspend (Wallet, String) -> Result<Unit, WalletError>)? = null
+
     private val _uiState = MutableStateFlow(WalletUiState())
     val uiState: StateFlow<WalletUiState> = _uiState.asStateFlow()
 
@@ -86,10 +90,10 @@ class WalletViewModel(
         supportedChain: SupportedChain,
         wallet: Wallet,
     ) {
-        val signers = buildAvailableSigners(wallet)
+        val signers = loadSigners(wallet)
         val securityLevel = crossmintWallets.getDeviceSignerSecurityLevel(wallet.address)
         reapplyPhoneChannel(wallet)
-        walletCache[supportedChain] = CachedWallet(wallet, securityLevel)
+        walletCache[supportedChain] = CachedWallet(wallet, securityLevel, signers)
         notFoundChains.remove(supportedChain)
         activeFetches.remove(supportedChain)
         _uiState.value =
@@ -98,7 +102,9 @@ class WalletViewModel(
                 wallet = wallet,
                 errorMessage = null,
                 isEmpty = false,
-                availableSigners = signers,
+                availableSigners = signers.available,
+                pendingSigners = signers.pending,
+                signersError = signers.error,
                 selectedSignerIndex = 0,
                 deviceSignerSecurityLevel = securityLevel,
             )
@@ -126,6 +132,8 @@ class WalletViewModel(
                 errorMessage = if (!isEmpty) error.message else null,
                 isEmpty = isEmpty,
                 availableSigners = emptyList(),
+                pendingSigners = emptyList(),
+                signersError = null,
                 selectedSignerIndex = 0,
             )
     }
@@ -162,7 +170,7 @@ class WalletViewModel(
                             val wallet = result.value
                             val securityLevel = crossmintWallets.getDeviceSignerSecurityLevel(wallet.address)
                             reapplyPhoneChannel(wallet)
-                            walletCache[chain] = CachedWallet(wallet, securityLevel)
+                            walletCache[chain] = CachedWallet(wallet, securityLevel, loadSigners(wallet))
                         }
                         is Result.Failure -> {
                             if (result.error is WalletError.WalletNotFound) notFoundChains.add(chain)
@@ -173,15 +181,38 @@ class WalletViewModel(
             }
     }
 
-    private fun buildAvailableSigners(wallet: Wallet): List<SignerOption> {
-        val admin = adminSignerToOption(wallet.config.adminSigner)
+    private suspend fun loadSigners(wallet: Wallet): WalletSigners {
         val delegated =
-            wallet.config.delegatedSigners
-                .distinctBy { it.locator }
-                .filter { it.status == DelegatedSignerStatus.UNKNOWN || it.status == DelegatedSignerStatus.ACTIVE }
-                .map { delegatedSignerToOption(it) }
-        return listOf(admin) + delegated
+            when (val result = wallet.signers()) {
+                is Result.Success -> result.value.distinctBy { it.locator }
+                is Result.Failure ->
+                    return WalletSigners(
+                        available = recoverySignerOptions(wallet),
+                        pending = emptyList(),
+                        error = "Failed to load signers: ${result.error.message}",
+                    )
+            }
+        val working = delegated.filter { it.status == DelegatedSignerStatus.ACTIVE }
+        val pending =
+            delegated.filter {
+                it.status != DelegatedSignerStatus.ACTIVE &&
+                    it.status != DelegatedSignerStatus.FAILED
+            }
+        return WalletSigners(
+            available = recoverySignerOptions(wallet) + working.map { delegatedSignerToOption(it) },
+            pending = pending.map { delegatedSignerToOption(it).copy(isPending = true) },
+        )
     }
+
+    private fun recoverySignerOptions(wallet: Wallet): List<SignerOption> =
+        wallet.config.recoveryMethods
+            .filter {
+                it.status == DelegatedSignerStatus.ACTIVE ||
+                    (it.status == DelegatedSignerStatus.UNKNOWN && wallet.chainType == ChainType.EVM)
+            }.map { it.signer }
+            .filter { it !is SignerData.Server }
+            .filter { it !is SignerData.ExternalWallet || it.locator == DemoExternalWallet.locator }
+            .map { adminSignerToOption(it) }
 
     private fun adminSignerToOption(signer: SignerData): SignerOption {
         val (type, identifier) =
@@ -192,8 +223,15 @@ class WalletViewModel(
                 is SignerData.ApiKey -> "api-key" to "api-key"
                 is SignerData.ExternalWallet -> "external-wallet" to signer.address
                 is SignerData.Device -> "device" to signer.locator
+                is SignerData.Server -> "server" to signer.address
             }
-        return SignerOption(locator = signer.locator, type = type, identifier = identifier, isAdmin = true)
+        return SignerOption(
+            locator = signer.locator,
+            type = type,
+            identifier = identifier,
+            isAdmin = true,
+            name = (signer as? SignerData.Passkey)?.name,
+        )
     }
 
     private fun delegatedSignerToOption(signer: DelegatedSignerData): SignerOption =
@@ -202,25 +240,26 @@ class WalletViewModel(
             type = signer.type.value.ifEmpty { "unknown" },
             identifier = signer.identifier,
             isAdmin = false,
+            name = signer.name,
         )
 
     fun createWallet(
         chain: Chain,
-        signer: SignerType,
+        recoveryMethods: List<SignerType>,
         delegatedSigners: List<DelegatedSigner> = emptyList(),
     ) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isCreatingWallet = true, errorMessage = null)
-            when (val result = crossmintWallets.createWallet(chain, signer, delegatedSigners)) {
+            when (val result = crossmintWallets.createWallet(chain, recoveryMethods, delegatedSigners)) {
                 is Result.Success -> {
-                    if (signer is SignerType.Phone) {
-                        WalletEvents.rememberPhoneChannel(signer.phoneNumber, signer.channel)
+                    recoveryMethods.filterIsInstance<SignerType.Phone>().forEach {
+                        WalletEvents.rememberPhoneChannel(it.phoneNumber, it.channel)
                     }
                     val wallet = result.value
-                    val signers = buildAvailableSigners(wallet)
+                    val signers = loadSigners(wallet)
                     val supportedChain = SupportedChain.entries.find { it.chain == chain }
                     if (supportedChain != null) {
-                        walletCache[supportedChain] = CachedWallet(wallet, null)
+                        walletCache[supportedChain] = CachedWallet(wallet, null, signers)
                         notFoundChains.remove(supportedChain)
                     }
                     _uiState.value =
@@ -229,7 +268,9 @@ class WalletViewModel(
                             isCreatingWallet = false,
                             isEmpty = false,
                             errorMessage = null,
-                            availableSigners = signers,
+                            availableSigners = signers.available,
+                            pendingSigners = signers.pending,
+                            signersError = signers.error,
                             selectedSignerIndex = 0,
                         )
                 }
@@ -254,26 +295,27 @@ class WalletViewModel(
         _uiState.value = _uiState.value.copy(errorMessage = null)
     }
 
-    fun addDeviceSignerToWallet() {
-        val wallet = _uiState.value.wallet ?: return
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isModifyingSigners = true, signerOperationError = null)
-            when (val result = wallet.recover()) {
-                is Result.Success -> {
-                    _uiState.value = _uiState.value.copy(isModifyingSigners = false, signerOperationError = null)
-                    fetchWallet(selectedChain.value.chain)
-                }
-                is Result.Failure ->
-                    _uiState.value =
-                        _uiState.value.copy(
-                            isModifyingSigners = false,
-                            signerOperationError = result.error.message,
-                        )
-            }
-        }
-    }
+    fun addDeviceSignerToWallet() = modifySigners("Failed to add device signer") { it.recover() }
 
-    fun addDelegatedSignerToWallet(signer: DelegatedSigner) {
+    fun addDelegatedSignerToWallet(signer: DelegatedSigner) =
+        modifySigners("Failed to add signer") { it.addSigner(signer) }
+
+    fun removeSignerFromWallet(locator: String) =
+        modifySigners("Failed to remove signer") { it.removeSigner(DelegatedSigner.Locator(locator)) }
+
+    fun addRecoveryMethodToWallet(recoveryMethod: DelegatedSigner) =
+        modifySigners("Failed to add recovery method") { it.addRecoveryMethod(recoveryMethod) }
+
+    fun removeRecoveryMethodFromWallet(locator: String) =
+        modifySigners("Failed to remove recovery method") {
+            it.removeRecoveryMethod(DelegatedSigner.Locator(locator))
+        }
+
+    private fun modifySigners(
+        errorPrefix: String,
+        operation: suspend (Wallet) -> Result<Unit, WalletError>,
+    ) {
+        val wallet = _uiState.value.wallet ?: return
         viewModelScope.launch {
             _uiState.value =
                 _uiState.value.copy(
@@ -281,7 +323,22 @@ class WalletViewModel(
                     signerOperationError = null,
                     signerOperationSuccess = false,
                 )
-            when (val result = crossmintWallets.addSigner(signer, selectedChain.value.chain)) {
+            val recoveryLocators = wallet.config.recoveryMethods.map { it.signer.locator }
+            val approver =
+                _uiState.value.selectedSigner
+                    ?.locator
+                    ?.takeIf { it in recoveryLocators } ?: recoveryLocators.first()
+            val passkeyActivation =
+                if (approver.startsWith(PASSKEY_PREFIX)) activatePasskey(wallet, approver) else null
+            val selection =
+                passkeyActivation?.takeIf { it is Result.Failure }
+                    ?: wallet.useRecoveryMethod(recoveryMethodFor(approver))
+            val result =
+                when (selection) {
+                    is Result.Failure -> selection
+                    is Result.Success -> operation(wallet)
+                }
+            when (result) {
                 is Result.Success -> {
                     _uiState.value = _uiState.value.copy(isModifyingSigners = false, signerOperationSuccess = true)
                     fetchWallet(selectedChain.value.chain)
@@ -290,28 +347,9 @@ class WalletViewModel(
                     _uiState.value =
                         _uiState.value.copy(
                             isModifyingSigners = false,
-                            signerOperationError = "Failed to add signer: ${result.error.message}",
+                            signerOperationError = "$errorPrefix: ${result.error.message}",
                         )
-                }
-            }
-        }
-    }
-
-    fun removeSignerFromWallet(locator: String) {
-        val wallet = _uiState.value.wallet ?: return
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isModifyingSigners = true, signerOperationError = null)
-            when (val result = wallet.removeSigner(DelegatedSigner.Locator(locator))) {
-                is Result.Success -> {
-                    _uiState.value = _uiState.value.copy(isModifyingSigners = false)
                     fetchWallet(selectedChain.value.chain)
-                }
-                is Result.Failure -> {
-                    _uiState.value =
-                        _uiState.value.copy(
-                            isModifyingSigners = false,
-                            signerOperationError = "Failed to remove signer: ${result.error.message}",
-                        )
                 }
             }
         }
@@ -360,6 +398,24 @@ class WalletViewModel(
                     transaction = null,
                     isTransactionFetched = false,
                 )
+            val passkeyLocator =
+                _uiState.value.selectedSigner
+                    ?.locator
+                    ?.takeIf { it.startsWith(PASSKEY_PREFIX) }
+            val activation =
+                if (passkeyLocator != null) {
+                    activatePasskey(wallet, passkeyLocator)
+                } else {
+                    selectedRecoveryApprover()?.let { wallet.useSigner(it) }
+                }
+            if (activation is Result.Failure) {
+                _uiState.value =
+                    _uiState.value.copy(
+                        isCreatingTransaction = false,
+                        transactionError = TransactionError.SigningFailed(activation.error.message),
+                    )
+                return@launch
+            }
             val signer = resolveSignerSelection(wallet)
             val result = wallet.send(recipient, tokenLocator, amountDouble, newIdempotencyKey(), signer)
             when (result) {
@@ -386,12 +442,30 @@ class WalletViewModel(
         }
     }
 
+    private suspend fun activatePasskey(
+        wallet: Wallet,
+        locator: String,
+    ): Result<Unit, WalletError> =
+        passkeyActivator?.invoke(wallet, locator.removePrefix(PASSKEY_PREFIX))
+            ?: Result.Failure(WalletError.InvalidInput("Passkey signing is not available on this platform"))
+
+    private fun selectedRecoveryApprover(): DelegatedSigner? =
+        _uiState.value.selectedSigner
+            ?.takeIf { it.isAdmin }
+            ?.let { recoveryMethodFor(it.locator) }
+
+    private fun recoveryMethodFor(locator: String): DelegatedSigner =
+        when (locator) {
+            DemoExternalWallet.locator -> DemoExternalWallet.signer()
+            else -> DelegatedSigner.Locator(locator)
+        }
+
     private fun resolveSignerSelection(wallet: Wallet): SignerSelection {
         val selectedOption = _uiState.value.selectedSigner ?: return SignerSelection.Admin
-        if (selectedOption.isAdmin) return SignerSelection.Admin
+        if (selectedOption.locator == wallet.config.adminSigner.locator) return SignerSelection.Admin
         val delegatedSigner =
             wallet.config.delegatedSigners.find { it.locator == selectedOption.locator }
-                ?: return SignerSelection.Admin
+                ?: DelegatedSignerData(locator = selectedOption.locator)
         return SignerSelection.Delegated(delegatedSigner)
     }
 
@@ -424,7 +498,9 @@ class WalletViewModel(
                         isLoading = false,
                         isEmpty = false,
                         errorMessage = null,
-                        availableSigners = buildAvailableSigners(cached.wallet),
+                        availableSigners = cached.signers.available,
+                        pendingSigners = cached.signers.pending,
+                        signersError = cached.signers.error,
                         selectedSignerIndex = 0,
                         deviceSignerSecurityLevel = cached.securityLevel,
                     )
@@ -437,6 +513,8 @@ class WalletViewModel(
                         isEmpty = true,
                         errorMessage = null,
                         availableSigners = emptyList(),
+                        pendingSigners = emptyList(),
+                        signersError = null,
                         selectedSignerIndex = 0,
                     )
             }
@@ -555,3 +633,5 @@ class WalletViewModel(
         }
     }
 }
+
+private const val PASSKEY_PREFIX = "passkey:"
