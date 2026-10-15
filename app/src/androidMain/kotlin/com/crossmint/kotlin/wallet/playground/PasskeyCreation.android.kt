@@ -21,12 +21,33 @@ import androidx.credentials.CreatePublicKeyCredentialRequest
 import androidx.credentials.CreatePublicKeyCredentialResponse
 import androidx.credentials.CredentialManager
 import androidx.credentials.exceptions.CreateCredentialCancellationException
+import com.crossmint.kotlin.passkeys.useSigner
 import com.crossmint.kotlin.signers.DelegatedSigner
+import com.crossmint.kotlin.types.Result
+import com.crossmint.kotlin.types.Wallet
+import com.crossmint.kotlin.types.WalletError
 import com.crossmint.kotlin.utility.exposeTestTags
 import java.math.BigInteger
 import java.security.SecureRandom
 import kotlinx.coroutines.CompletableDeferred
 import org.json.JSONObject
+
+private const val PASSKEY_RP_ID = "wallets-ios.demos-crossmint.com"
+
+@Composable
+actual fun rememberPasskeyActivator(): (suspend (Wallet, String) -> Result<Unit, WalletError>)? {
+    val context = LocalContext.current
+    return remember(context) {
+        { wallet, credentialId ->
+            wallet.useSigner(
+                signer = DelegatedSigner.Passkey(id = credentialId, name = "", publicKeyX = "", publicKeyY = ""),
+                credentialManager = CredentialManager.create(context),
+                activityProvider = { checkNotNull(context.findActivity()) },
+                rpId = PASSKEY_RP_ID,
+            )
+        }
+    }
+}
 
 @Composable
 actual fun rememberPasskeyCreator(): (suspend (name: String) -> DelegatedSigner.Passkey?)? {
@@ -163,7 +184,7 @@ private suspend fun createPasskeySigner(
     val requestJson =
         buildString {
             append("""{"challenge":"$challengeB64",""")
-            append(""""rp":{"id":"crossmint.com","name":"Crossmint"},""")
+            append(""""rp":{"id":"$PASSKEY_RP_ID","name":"Crossmint"},""")
             append(""""user":{"id":"$userIdB64","name":"$name","displayName":"$name"},""")
             append(""""pubKeyCredParams":[{"type":"public-key","alg":-7}],""")
             append(
