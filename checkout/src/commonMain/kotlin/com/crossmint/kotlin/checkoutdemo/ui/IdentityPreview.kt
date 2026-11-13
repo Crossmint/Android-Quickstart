@@ -6,8 +6,9 @@ import androidx.compose.ui.Modifier
 @Composable
 expect fun IdentityPreview(
     apiKey: String,
-    inquiryId: String,
-    sessionToken: String,
+    usesSession: Boolean,
+    id: String,
+    secret: String,
     modifier: Modifier,
     onEvent: (String) -> Unit,
 )

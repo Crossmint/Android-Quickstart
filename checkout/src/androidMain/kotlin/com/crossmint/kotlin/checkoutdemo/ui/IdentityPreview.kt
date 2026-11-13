@@ -12,14 +12,15 @@ import com.crossmint.kotlin.identity.IdentityVerificationCredentials
 @Composable
 actual fun IdentityPreview(
     apiKey: String,
-    inquiryId: String,
-    sessionToken: String,
+    usesSession: Boolean,
+    id: String,
+    secret: String,
     modifier: Modifier,
     onEvent: (String) -> Unit,
 ) {
-    if (inquiryId.isBlank()) {
+    if (id.isBlank()) {
         Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("Enter an inquiry ID to preview identity verification.")
+            Text("Enter an inquiry or verification ID to preview identity verification.")
         }
         return
     }
@@ -27,10 +28,11 @@ actual fun IdentityPreview(
     CrossmintIdentityVerification(
         apiKey = apiKey,
         credentials =
-            IdentityVerificationCredentials(
-                inquiryId = inquiryId,
-                sessionToken = sessionToken.ifBlank { null },
-            ),
+            if (usesSession) {
+                IdentityVerificationCredentials.Session(verificationId = id, clientSecret = secret)
+            } else {
+                IdentityVerificationCredentials(inquiryId = id, sessionToken = secret.ifBlank { null })
+            },
         modifier = modifier,
         onReady = { onEvent("Identity verification ready") },
         onComplete = { status -> onEvent("Identity verification completed: $status") },

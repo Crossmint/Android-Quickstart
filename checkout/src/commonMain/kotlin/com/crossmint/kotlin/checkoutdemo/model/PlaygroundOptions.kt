@@ -5,11 +5,13 @@ import com.crossmint.kotlin.checkout.models.CheckoutAllowedMethods
 import com.crossmint.kotlin.checkout.models.CheckoutAppearance
 import com.crossmint.kotlin.checkout.models.CheckoutAppearanceRules
 import com.crossmint.kotlin.checkout.models.CheckoutAppearanceVariables
+import com.crossmint.kotlin.checkout.models.CheckoutColor
 import com.crossmint.kotlin.checkout.models.CheckoutCryptoPayment
 import com.crossmint.kotlin.checkout.models.CheckoutDestinationInputRule
 import com.crossmint.kotlin.checkout.models.CheckoutFiatPayment
 import com.crossmint.kotlin.checkout.models.CheckoutGlobalMessageRule
 import com.crossmint.kotlin.checkout.models.CheckoutInputRule
+import com.crossmint.kotlin.checkout.models.CheckoutLength
 import com.crossmint.kotlin.checkout.models.CheckoutPayment
 import com.crossmint.kotlin.checkout.models.CheckoutPrimaryButtonRule
 import com.crossmint.kotlin.checkout.models.CheckoutReceiptEmailInputRule
@@ -28,6 +30,7 @@ data class PlaygroundOptions(
     val backgroundColor: String = "",
     val accentColor: String = "",
     val dangerColor: String = "",
+    val font: FontPreset = FontPreset.DEFAULT,
     val inputRadius: Float = DEFAULT_BORDER_RADIUS,
     val tabRadius: Float = DEFAULT_BORDER_RADIUS,
     val buttonRadius: Float = DEFAULT_BORDER_RADIUS,
@@ -55,14 +58,20 @@ data class PlaygroundOptions(
                 null
             } else {
                 CheckoutVariablesColorStyle(
-                    textPrimary = textColor.ifBlank { null },
-                    backgroundPrimary = backgroundColor.ifBlank { null },
-                    accent = accentColor.ifBlank { null },
-                    danger = dangerColor.ifBlank { null },
+                    textPrimaryColor = textColor.ifBlank { null }?.let(CheckoutColor::hex),
+                    backgroundPrimaryColor = backgroundColor.ifBlank { null }?.let(CheckoutColor::hex),
+                    accentColor = accentColor.ifBlank { null }?.let(CheckoutColor::hex),
+                    dangerColor = dangerColor.ifBlank { null }?.let(CheckoutColor::hex),
                 )
             }
 
-        val variables = if (colors == null) null else CheckoutAppearanceVariables(colors = colors)
+        val variables =
+            if (colors == null && font.family == null) {
+                null
+            } else {
+                CheckoutAppearanceVariables(fontFamily = font.family, colors = colors)
+            }
+        val fonts = font.source?.let { listOf(it) }
 
         val hidesElement = !showsDestinationInput || !showsReceiptEmailInput || !showsStatusMessage
         val hasCustomInputRadius = inputRadius != DEFAULT_BORDER_RADIUS
@@ -99,7 +108,7 @@ data class PlaygroundOptions(
                     input =
                         if (hasCustomInputRadius) {
                             CheckoutInputRule(
-                                borderRadius = "${inputRadius.toInt()}px",
+                                cornerRadius = CheckoutLength.px(inputRadius.toInt()),
                             )
                         } else {
                             null
@@ -107,14 +116,14 @@ data class PlaygroundOptions(
                     tab =
                         if (hasCustomTabRadius) {
                             CheckoutTabRule(
-                                borderRadius = "${tabRadius.toInt()}px",
+                                cornerRadius = CheckoutLength.px(tabRadius.toInt()),
                             )
                         } else {
                             null
                         },
                     primaryButton =
                         if (hasCustomButtonRadius) {
-                            CheckoutPrimaryButtonRule(borderRadius = "${buttonRadius.toInt()}px")
+                            CheckoutPrimaryButtonRule(cornerRadius = CheckoutLength.px(buttonRadius.toInt()))
                         } else {
                             null
                         },
@@ -123,8 +132,8 @@ data class PlaygroundOptions(
                 null
             }
 
-        if (variables == null && rules == null) return null
-        return CheckoutAppearance(rules = rules, variables = variables)
+        if (variables == null && rules == null && fonts == null) return null
+        return CheckoutAppearance(rules = rules, variables = variables, fonts = fonts)
     }
 
     fun toIdentityVerificationHandling(): IdentityVerificationHandling? =
