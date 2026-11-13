@@ -42,18 +42,21 @@ class PlaygroundViewModel(
     }
 
     fun updateIdentityCredentials(
-        inquiryId: String,
-        sessionToken: String,
+        usesSession: Boolean,
+        id: String,
+        secret: String,
     ) {
-        _uiState.value = _uiState.value.copy(identityInquiryId = inquiryId, identitySessionToken = sessionToken)
+        _uiState.value =
+            _uiState.value.copy(identityUsesSession = usesSession, identityId = id, identitySecret = secret)
     }
 
     fun startIdentityPreview() {
         val state = _uiState.value
         _uiState.value =
             state.copy(
-                confirmedIdentityInquiryId = state.identityInquiryId,
-                confirmedIdentitySessionToken = state.identitySessionToken,
+                confirmedIdentityUsesSession = state.identityUsesSession,
+                confirmedIdentityId = state.identityId,
+                confirmedIdentitySecret = state.identitySecret,
             )
     }
 
