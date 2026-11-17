@@ -12,10 +12,12 @@ data class PlaygroundUiState(
     val options: PlaygroundOptions = PlaygroundOptions(),
     val existingOrderId: String = "",
     val existingClientSecret: String = "",
-    val identityInquiryId: String = "",
-    val identitySessionToken: String = "",
-    val confirmedIdentityInquiryId: String = "",
-    val confirmedIdentitySessionToken: String = "",
+    val identityUsesSession: Boolean = false,
+    val identityId: String = "",
+    val identitySecret: String = "",
+    val confirmedIdentityUsesSession: Boolean = false,
+    val confirmedIdentityId: String = "",
+    val confirmedIdentitySecret: String = "",
     val session: OrderSession? = null,
     val isCreatingOrder: Boolean = false,
     val orderErrorMessage: String? = null,
@@ -25,5 +27,5 @@ data class PlaygroundUiState(
         get() = session != null
 
     val isPreviewingIdentity: Boolean
-        get() = confirmedIdentityInquiryId.isNotBlank()
+        get() = confirmedIdentityId.isNotBlank()
 }

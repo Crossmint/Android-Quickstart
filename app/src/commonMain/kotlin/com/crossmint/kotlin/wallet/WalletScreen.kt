@@ -43,6 +43,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -76,6 +77,7 @@ import com.crossmint.kotlin.wallet.playground.ActivitySheet
 import com.crossmint.kotlin.wallet.playground.SignersSheet
 import com.crossmint.kotlin.wallet.playground.SigningSheet
 import com.crossmint.kotlin.wallet.playground.TransferSheet
+import com.crossmint.kotlin.wallet.playground.rememberPasskeyActivator
 import com.crossmint.kotlin.wallet.playground.rememberPasskeyCreator
 import com.crossmint.kotlin.wallet.subcomponents.WalletTransactionErrorDialog
 import kotlinx.coroutines.launch
@@ -107,6 +109,8 @@ fun WalletScreen(
     var showSigningSheet by remember { mutableStateOf(false) }
     var isRefreshing by remember { mutableStateOf(false) }
     val passkeyCreator = rememberPasskeyCreator()
+    val passkeyActivator = rememberPasskeyActivator()
+    SideEffect { walletViewModel.passkeyActivator = passkeyActivator }
 
     LaunchedEffect(Unit) {
         walletViewModel.sessionExpired.collect {

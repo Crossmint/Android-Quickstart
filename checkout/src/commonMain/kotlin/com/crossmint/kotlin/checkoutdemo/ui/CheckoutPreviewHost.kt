@@ -137,8 +137,9 @@ private fun PreviewBody(
             section == PlaygroundSection.IDENTITY && uiState.isPreviewingIdentity ->
                 IdentityPreview(
                     apiKey = apiKey,
-                    inquiryId = uiState.confirmedIdentityInquiryId,
-                    sessionToken = uiState.confirmedIdentitySessionToken,
+                    usesSession = uiState.confirmedIdentityUsesSession,
+                    id = uiState.confirmedIdentityId,
+                    secret = uiState.confirmedIdentitySecret,
                     modifier = Modifier.fillMaxSize(),
                     onEvent = onEvent,
                 )
