@@ -27,9 +27,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.crossmint.kotlin.utility.truncateLocator
 import com.crossmint.kotlin.wallet.SignerOption
 import com.crossmint.kotlin.wallet.WalletUiState
 
@@ -56,16 +56,19 @@ internal fun SignerPickerSection(
             Column(modifier = Modifier.weight(1f)) {
                 val sel = uiState.selectedSigner
                 if (sel != null) {
+                    val label = signerLabel(sel)
                     Text(
-                        sel.type.replaceFirstChar { it.titlecase() } + if (sel.isAdmin) " (Recovery)" else "",
+                        label.headline + if (sel.isAdmin) " (Recovery)" else "",
                         fontWeight = FontWeight.Medium,
                         fontSize = 14.sp,
                     )
                     Text(
-                        sel.locator.truncateLocator(),
+                        label.detail,
                         fontSize = 11.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontFamily = FontFamily.Monospace,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                 } else {
                     Text("Select signer", fontWeight = FontWeight.Medium, fontSize = 14.sp)
@@ -95,18 +98,21 @@ internal fun SignerDropdownItem(
     signer: SignerOption,
     isSelected: Boolean = false,
 ) {
+    val label = signerLabel(signer)
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                signer.type.replaceFirstChar { it.titlecase() } + if (signer.isAdmin) " (Recovery)" else "",
+                label.headline + if (signer.isAdmin) " (Recovery)" else "",
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Medium,
             )
             Text(
-                signer.locator.truncateLocator(),
+                label.detail,
                 fontSize = 11.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontFamily = FontFamily.Monospace,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
         }
         if (isSelected) {

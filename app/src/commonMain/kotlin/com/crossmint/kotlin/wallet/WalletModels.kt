@@ -17,6 +17,8 @@ data class SignerOption(
     val type: String,
     val identifier: String,
     val isAdmin: Boolean,
+    val name: String? = null,
+    val isPending: Boolean = false,
 ) {
     val displayName: String
         get() =
@@ -41,6 +43,8 @@ data class WalletUiState(
     val isLoadingBalances: Boolean = false,
     val balanceError: BalanceError? = null,
     val availableSigners: List<SignerOption> = emptyList(),
+    val pendingSigners: List<SignerOption> = emptyList(),
+    val signersError: String? = null,
     val selectedSignerIndex: Int = 0,
     val deviceSignerSecurityLevel: String? = null,
     val isModifyingSigners: Boolean = false,
@@ -117,18 +121,29 @@ enum class SupportedChain(
             }
 
     fun compatibleDelegatedSignerTypes(supportsPasskey: Boolean = false): List<DelegatedSignerType> =
-        when (this) {
-            EVM ->
-                buildList {
-                    add(DelegatedSignerType.EXTERNAL_WALLET)
-                    add(DelegatedSignerType.DEVICE)
-                    if (supportsPasskey) add(DelegatedSignerType.PASSKEY)
-                }
-            SOLANA, STELLAR -> listOf(DelegatedSignerType.EXTERNAL_WALLET, DelegatedSignerType.DEVICE)
+        buildList {
+            add(DelegatedSignerType.EXTERNAL_WALLET)
+            add(DelegatedSignerType.DEVICE)
+            if (supportsPasskey) add(DelegatedSignerType.PASSKEY)
+        }
+
+    fun compatibleRecoveryMethodTypes(supportsPasskey: Boolean = false): List<DelegatedSignerType> =
+        buildList {
+            add(DelegatedSignerType.EMAIL)
+            add(DelegatedSignerType.PHONE)
+            add(DelegatedSignerType.EXTERNAL_WALLET)
+            if (supportsPasskey && this@SupportedChain == STELLAR) add(DelegatedSignerType.PASSKEY)
         }
 }
 
 internal data class CachedWallet(
     val wallet: Wallet,
     val securityLevel: String?,
+    val signers: WalletSigners,
+)
+
+internal data class WalletSigners(
+    val available: List<SignerOption>,
+    val pending: List<SignerOption>,
+    val error: String? = null,
 )
