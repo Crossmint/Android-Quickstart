@@ -249,7 +249,7 @@ private fun findTokenBalance(
 }
 
 @Composable
-private fun TransferSuccessView(
+internal fun TransferSuccessView(
     transaction: com.crossmint.kotlin.types.Transaction,
     onDone: () -> Unit,
 ) {
@@ -259,7 +259,7 @@ private fun TransferSuccessView(
             TransactionStatus.SUCCESS -> MaterialTheme.colorScheme.primary
             TransactionStatus.PENDING -> Color(0xFFFF9800)
             TransactionStatus.AWAITING_APPROVAL -> Color(0xFF2196F3)
-            TransactionStatus.FAILED -> MaterialTheme.colorScheme.error
+            TransactionStatus.FAILED, TransactionStatus.CANCELLED -> MaterialTheme.colorScheme.error
         }
 
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -293,6 +293,16 @@ private fun TransferSuccessView(
                     color = MaterialTheme.colorScheme.outlineVariant,
                 )
                 TxDetailRow("Status", transaction.status.name, statusColor)
+                transaction.approvals?.quorums?.forEach { quorum ->
+                    HorizontalDivider(
+                        modifier = Modifier.padding(vertical = 10.dp),
+                        color = MaterialTheme.colorScheme.outlineVariant,
+                    )
+                    TxDetailRow(
+                        "Quorum approvals",
+                        "${quorum.threshold - quorum.remaining} of ${quorum.threshold} approved",
+                    )
+                }
                 transaction.onChain.txId?.let { txId ->
                     HorizontalDivider(
                         modifier = Modifier.padding(vertical = 10.dp),

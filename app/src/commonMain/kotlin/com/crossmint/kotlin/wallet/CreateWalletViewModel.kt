@@ -9,6 +9,7 @@ import com.crossmint.kotlin.signers.SignerType
 import com.crossmint.kotlin.types.Chain
 import com.crossmint.kotlin.types.Result
 import com.crossmint.kotlin.types.Wallet
+import com.crossmint.kotlin.wallet.createwallet.phoneSigners
 import com.crossmint.kotlin.wallets.CrossmintWallets
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -37,10 +38,11 @@ class CreateWalletViewModel(
 
     fun createWallet(
         chain: Chain,
-        signer: SignerType,
+        recoveryMethods: List<SignerType>,
         delegatedSigners: List<DelegatedSigner> = emptyList(),
         deviceSigner: Boolean = false,
     ) {
+        val primary = recoveryMethods.firstOrNull() ?: return
         viewModelScope.launch {
             _uiState.value =
                 _uiState.value.copy(
@@ -48,28 +50,26 @@ class CreateWalletViewModel(
                     errorMessage = null,
                     pendingOTPSignerType =
                         if (deviceSigner) {
-                            when (signer) {
+                            when (primary) {
                                 is SignerType.Email -> OTPSignerType.EMAIL
                                 is SignerType.Phone -> OTPSignerType.PHONE
-                                SignerType.ApiKey, is SignerType.Passkey -> null
+                                SignerType.ApiKey,
+                                is SignerType.Passkey,
+                                is SignerType.ExternalWallet,
+                                is SignerType.Quorum,
+                                -> null
                             }
                         } else {
                             null
                         },
                 )
 
-            when (
-                val result =
-                    crossmintWallets.createWallet(
-                        chain,
-                        signer,
-                        delegatedSigners,
-                        deviceSigner = deviceSigner,
-                    )
-            ) {
+            val result =
+                crossmintWallets.createWallet(chain, recoveryMethods, delegatedSigners, deviceSigner = deviceSigner)
+            when (result) {
                 is Result.Success -> {
-                    if (signer is SignerType.Phone) {
-                        WalletEvents.rememberPhoneChannel(signer.phoneNumber, signer.channel)
+                    recoveryMethods.phoneSigners().forEach {
+                        WalletEvents.rememberPhoneChannel(it.phoneNumber, it.channel)
                     }
                     _uiState.value =
                         _uiState.value.copy(

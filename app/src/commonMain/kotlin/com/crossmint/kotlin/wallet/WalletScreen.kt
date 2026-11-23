@@ -19,6 +19,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Draw
@@ -43,6 +44,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -70,12 +72,15 @@ import com.crossmint.kotlin.Routes
 import com.crossmint.kotlin.auth.AuthMethod
 import com.crossmint.kotlin.auth.crossmint.CrossmintAuthViewModel
 import com.crossmint.kotlin.compose.LocalCrossmintSDK
+import com.crossmint.kotlin.types.SignerData
 import com.crossmint.kotlin.utility.exposeTestTags
 import com.crossmint.kotlin.utility.truncateLocator
 import com.crossmint.kotlin.wallet.playground.ActivitySheet
+import com.crossmint.kotlin.wallet.playground.ApproveSheet
 import com.crossmint.kotlin.wallet.playground.SignersSheet
 import com.crossmint.kotlin.wallet.playground.SigningSheet
 import com.crossmint.kotlin.wallet.playground.TransferSheet
+import com.crossmint.kotlin.wallet.playground.rememberPasskeyActivator
 import com.crossmint.kotlin.wallet.playground.rememberPasskeyCreator
 import com.crossmint.kotlin.wallet.subcomponents.WalletTransactionErrorDialog
 import kotlinx.coroutines.launch
@@ -104,9 +109,12 @@ fun WalletScreen(
     var showTransferSheet by remember { mutableStateOf(false) }
     var showSignersSheet by remember { mutableStateOf(false) }
     var showActivitySheet by remember { mutableStateOf(false) }
+    var showApproveSheet by remember { mutableStateOf(false) }
     var showSigningSheet by remember { mutableStateOf(false) }
     var isRefreshing by remember { mutableStateOf(false) }
     val passkeyCreator = rememberPasskeyCreator()
+    val passkeyActivator = rememberPasskeyActivator()
+    SideEffect { walletViewModel.passkeyActivator = passkeyActivator }
 
     LaunchedEffect(Unit) {
         walletViewModel.sessionExpired.collect {
@@ -351,6 +359,28 @@ fun WalletScreen(
                                     showActivitySheet = true
                                 },
                             )
+                            if (uiState.wallet
+                                    ?.config
+                                    ?.recoveryMethods
+                                    ?.any { it.signer is SignerData.Quorum } ==
+                                true
+                            ) {
+                                HorizontalDivider(
+                                    modifier = Modifier.padding(start = 56.dp),
+                                    color = MaterialTheme.colorScheme.outlineVariant,
+                                )
+                                FeatureListItem(
+                                    icon = {
+                                        Icon(Icons.Filled.CheckCircle, null, tint = MaterialTheme.colorScheme.primary)
+                                    },
+                                    title = "Approve",
+                                    onClick = {
+                                        walletViewModel.clearTransaction()
+                                        walletViewModel.clearTransactionError()
+                                        showApproveSheet = true
+                                    },
+                                )
+                            }
                             if (selectedChain == SupportedChain.EVM) {
                                 HorizontalDivider(
                                     modifier = Modifier.padding(start = 56.dp),
@@ -394,6 +424,13 @@ fun WalletScreen(
                 walletViewModel = walletViewModel,
                 uiState = uiState,
                 onDismiss = { showActivitySheet = false },
+            )
+        }
+        if (showApproveSheet) {
+            ApproveSheet(
+                walletViewModel = walletViewModel,
+                uiState = uiState,
+                onDismiss = { showApproveSheet = false },
             )
         }
         if (showSigningSheet) {
