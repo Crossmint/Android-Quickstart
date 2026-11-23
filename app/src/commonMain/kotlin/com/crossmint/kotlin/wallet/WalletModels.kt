@@ -17,10 +17,15 @@ data class SignerOption(
     val type: String,
     val identifier: String,
     val isAdmin: Boolean,
+    val name: String? = null,
+    val isPending: Boolean = false,
+    val quorumLocator: String? = null,
 ) {
     val displayName: String
         get() =
-            if (isAdmin) {
+            if (quorumLocator != null) {
+                "$type: $identifier (Quorum member)"
+            } else if (isAdmin) {
                 "$type: $identifier (Admin)"
             } else {
                 "$type: $identifier"
@@ -41,11 +46,15 @@ data class WalletUiState(
     val isLoadingBalances: Boolean = false,
     val balanceError: BalanceError? = null,
     val availableSigners: List<SignerOption> = emptyList(),
+    val pendingSigners: List<SignerOption> = emptyList(),
+    val signersError: String? = null,
     val selectedSignerIndex: Int = 0,
     val deviceSignerSecurityLevel: String? = null,
     val isModifyingSigners: Boolean = false,
     val signerOperationError: String? = null,
     val signerOperationSuccess: Boolean = false,
+    val signerOperationNotice: String? = null,
+    val pendingRemovals: Map<String, PendingRemoval> = emptyMap(),
     val transfers: List<Transfer> = emptyList(),
     val isLoadingTransfers: Boolean = false,
     val transfersError: String? = null,
@@ -60,8 +69,25 @@ data class WalletUiState(
     val hasBalances: Boolean get() = balances != null
     val hasBalanceError: Boolean get() = balanceError != null
     val hasMultipleSigners: Boolean get() = availableSigners.size > 1
+    val pendingRemovalLocators: Set<String>
+        get() =
+            pendingRemovals.values
+                .filter { it.walletAddress == wallet?.address }
+                .map { it.locator }
+                .toSet()
+
     val selectedSigner: SignerOption? get() = availableSigners.getOrNull(selectedSignerIndex)
 }
+
+data class PendingRemoval(
+    val walletAddress: String,
+    val locator: String,
+)
+
+fun Map<String, PendingRemoval>.withoutFinished(
+    walletAddress: String,
+    recoveryLocators: Set<String>,
+): Map<String, PendingRemoval> = filterValues { it.walletAddress != walletAddress || it.locator in recoveryLocators }
 
 data class TransferToken(
     val displayName: String,
@@ -117,18 +143,31 @@ enum class SupportedChain(
             }
 
     fun compatibleDelegatedSignerTypes(supportsPasskey: Boolean = false): List<DelegatedSignerType> =
-        when (this) {
-            EVM ->
-                buildList {
-                    add(DelegatedSignerType.EXTERNAL_WALLET)
-                    add(DelegatedSignerType.DEVICE)
-                    if (supportsPasskey) add(DelegatedSignerType.PASSKEY)
-                }
-            SOLANA, STELLAR -> listOf(DelegatedSignerType.EXTERNAL_WALLET, DelegatedSignerType.DEVICE)
+        buildList {
+            add(DelegatedSignerType.EXTERNAL_WALLET)
+            add(DelegatedSignerType.DEVICE)
+            if (supportsPasskey) add(DelegatedSignerType.PASSKEY)
+            if (this@SupportedChain == STELLAR) add(DelegatedSignerType.QUORUM)
+        }
+
+    fun compatibleRecoveryMethodTypes(supportsPasskey: Boolean = false): List<DelegatedSignerType> =
+        buildList {
+            add(DelegatedSignerType.EMAIL)
+            add(DelegatedSignerType.PHONE)
+            add(DelegatedSignerType.EXTERNAL_WALLET)
+            if (supportsPasskey && this@SupportedChain == STELLAR) add(DelegatedSignerType.PASSKEY)
+            add(DelegatedSignerType.QUORUM)
         }
 }
 
 internal data class CachedWallet(
     val wallet: Wallet,
     val securityLevel: String?,
+    val signers: WalletSigners,
+)
+
+internal data class WalletSigners(
+    val available: List<SignerOption>,
+    val pending: List<SignerOption>,
+    val error: String? = null,
 )

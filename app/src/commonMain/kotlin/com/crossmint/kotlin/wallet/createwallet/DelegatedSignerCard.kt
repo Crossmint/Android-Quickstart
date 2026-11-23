@@ -122,6 +122,7 @@ fun DelegatedSignerCard(
                 }
                 DelegatedSignerType.DEVICE -> {}
                 DelegatedSignerType.PASSKEY -> {}
+                DelegatedSignerType.QUORUM -> {}
             }
         }
     }
